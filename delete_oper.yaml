@@ -1,0 +1,51 @@
+# the network instance name to be used if none is 
+# set under an operation configuration.
+default-network-instance: default
+
+# params:
+#   redundancy:
+#   persistence:
+#   ack-type:
+
+# list of operations to send towards targets,
+# only NH, NHG and IPv4 are supported
+operations:
+  - op: delete
+    # network-instance: not_default
+    ipv4:
+      prefix: 1.1.1.0/24
+      nhg: 1
+      nhg-network-instance: default
+      # decapsulate-header: # enum: gre, ipv4, ipv6, mpls
+      # entry-metadata: # string
+  - op: delete
+    nhg:
+      id: 1
+      # backup-nhg: # uint
+      # color: # uint
+      next-hop:
+        - index: 1
+          # weight: 1 # uint
+      # programmed-id: # uint   
+
+  - op: delete
+    # network-instance: #
+    # election-id: #
+    nh:
+      index: 1
+      ip-address: 192.168.1.2
+      # interface-reference:
+      #   interface:
+      #   subinterface:
+      # ip-in-ip:
+      #   dst-ip:
+      #   src-ip:
+      # mac:
+      # network-instance:
+      # programmed-index:
+      # pushed-mpls-label-stack:
+      #   - type: # ipv4-explicit, router-alert, ipv6-explicit, implicit, entropy-label-indicator, no-label
+      #     label: # uint
+
+
+  

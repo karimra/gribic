@@ -1,0 +1,62 @@
+project_name: gribic
+builds:
+  - env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w -X github.com/karimra/gribic/app.version={{.Version}} -X github.com/karimra/gribic/app.commit={{.ShortCommit}} -X github.com/karimra/gribic/app.date={{.Date}} -X github.com/karimra/gribic/app.gitURL={{.GitURL}}
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - "386"
+      - arm
+      - arm64
+    hooks:
+      post: upx "{{ .Path }}"
+dockers:
+  - goos: linux
+    goarch: amd64
+    ids:
+      - gribic
+    image_templates:
+      - "ghcr.io/karimra/gribic:latest"
+      - 'ghcr.io/karimra/gribic:{{ replace .Version "v" ""}}'
+    dockerfile: goreleaser.dockerfile
+    skip_push: false
+archives:
+  - replacements:
+      darwin: Darwin
+      linux: Linux
+      amd64: x86_64
+      386: i386
+      arm: armv7
+      arm64: aarch64
+checksum:
+  name_template: "checksums.txt"
+snapshot:
+  name_template: "{{ .Tag }}"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+nfpms:
+  - id: gribic
+    file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    replacements:
+      amd64: x86_64
+      386: i386
+      darwin: Darwin
+      linux: Linux
+    vendor: gribic
+    homepage: https://gribic.kmrd.dev
+    maintainer: Karim Radhouani <medkarimrdi@gmail.com>
+    description: Openconfig gRIBI client implementation
+    license: Apache 2.0
+    formats:
+      - deb
+      - rpm
+    bindir: /usr/local/bin

@@ -23,6 +23,7 @@ func newRootCmd() *cobra.Command {
 	gApp.InitGlobalFlags()
 	//
 	gApp.RootCmd.AddCommand(
+		newVersionCmd(),
 		newGetCmd(),
 		newModifyCmd(),
 		newFlushCmd(),

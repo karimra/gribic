@@ -40,13 +40,11 @@ The `gribic` container image can be pulled from GitHub container registries. The
 # pull latest release from github registry
 docker pull ghcr.io/karimra/gribic:latest
 # pull a specific release from github registry
-docker pull ghcr.io/karimra/gribic:0.0.2
+docker pull ghcr.io/karimra/gribic:0.0.1
 ```
-
-Example running `gribic tree` command using the docker image:
 
 ```bash
 docker run \
        --network host \
-       --rm ghcr.io/karimra/gribic tree
+       --rm ghcr.io/karimra/gribic --help
 ```

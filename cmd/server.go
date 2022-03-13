@@ -12,7 +12,7 @@ func newServerCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "server",
 		Aliases: []string{"serve", "s"},
-		Short:   "start a gRIBI server",
+		Short:   "start a gNMI server",
 		PreRun: func(cmd *cobra.Command, args []string) {
 			gApp.Config.SetLocalFlagsFromFile(cmd)
 		},

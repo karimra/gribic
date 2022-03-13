@@ -6,7 +6,7 @@ import "github.com/spf13/cobra"
 func newVersionCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:          "version",
-		Short:        "print gribic version",
+		Short:        "print gRIBIc version",
 		RunE:         gApp.RunEVersion,
 		SilenceUsage: true,
 	}

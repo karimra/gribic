@@ -9,9 +9,12 @@ import (
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/karimra/gnmic/utils"
+	"github.com/karimra/gribic/api"
 	"github.com/openconfig/gnmi/proto/gnmi"
+	"github.com/openconfig/gribi/v1/proto/gribi_aft"
 	spb "github.com/openconfig/gribi/v1/proto/service"
 	"github.com/openconfig/gribigo/rib"
+	"github.com/openconfig/ygot/proto/ywrapper"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"golang.org/x/sync/semaphore"
@@ -20,6 +23,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/prototext"
 )
 
 func (a *App) InitServerFlags(cmd *cobra.Command) {
@@ -70,6 +74,18 @@ func (a *App) RunEServer(cmd *cobra.Command, args []string) error {
 			if err != nil {
 				a.Logger.Errorf("target %s gRIBI Get failed: %v", t.Config.Name, err)
 			}
+			ticker := time.NewTicker(5 * time.Second)
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					err = a.targetRIBGet(ctx, t)
+					if err != nil {
+						a.Logger.Errorf("target %s gRIBI Get failed: %v", t.Config.Name, err)
+					}
+				}
+			}
 		}(t)
 	}
 	//
@@ -79,16 +95,20 @@ func (a *App) RunEServer(cmd *cobra.Command, args []string) error {
 }
 
 func (a *App) targetRIBGet(ctx context.Context, t *target) error {
-	req := new(spb.GetRequest)
-	req.NetworkInstance = &spb.GetRequest_All{}
-	req.Aft = spb.AFTType_ALL
+	req, err := api.NewGetRequest(
+		api.NSAll(),
+		api.AFTTypeAll(),
+	)
+	if err != nil {
+		return err
+	}
 	rsp, err := a.get(ctx, t, req)
 	if err != nil {
 		return err
 	}
 	if t.rib == nil {
 		a.Logger.Infof("target %s rib is nil, creating it", t.Config.Name)
-		t.rib = rib.New("default")
+		t.rib = rib.New(t.Config.DefaultNI)
 	}
 	for i, afte := range rsp.GetEntry() {
 		ni := afte.GetNetworkInstance()
@@ -97,12 +117,16 @@ func (a *App) targetRIBGet(ctx context.Context, t *target) error {
 			continue
 		}
 		if _, ok := t.rib.NetworkInstanceRIB(ni); !ok {
-			t.rib.AddNetworkInstance(ni)
+			err = t.rib.AddNetworkInstance(ni)
+			if err != nil {
+				return err
+			}
 		}
 		var err error
+		var fails []*rib.OpResult
 		switch e := afte.Entry.(type) {
 		case *spb.AFTEntry_Ipv4:
-			_, _, err = t.rib.AddEntry(afte.NetworkInstance, &spb.AFTOperation{
+			_, fails, err = t.rib.AddEntry(afte.NetworkInstance, &spb.AFTOperation{
 				Id:              uint64(i),
 				NetworkInstance: afte.GetNetworkInstance(),
 				Op:              spb.AFTOperation_ADD,
@@ -111,7 +135,7 @@ func (a *App) targetRIBGet(ctx context.Context, t *target) error {
 				},
 			})
 		case *spb.AFTEntry_NextHop:
-			_, _, err = t.rib.AddEntry(afte.NetworkInstance, &spb.AFTOperation{
+			_, fails, err = t.rib.AddEntry(afte.NetworkInstance, &spb.AFTOperation{
 				Id:              uint64(i),
 				NetworkInstance: afte.GetNetworkInstance(),
 				Op:              spb.AFTOperation_ADD,
@@ -120,7 +144,17 @@ func (a *App) targetRIBGet(ctx context.Context, t *target) error {
 				},
 			})
 		case *spb.AFTEntry_NextHopGroup:
-			_, _, err = t.rib.AddEntry(afte.NetworkInstance, &spb.AFTOperation{
+			// WR: need to set Wight value to make it resolvable ?
+			for i, nh := range e.NextHopGroup.GetNextHopGroup().GetNextHop() {
+				if nh.GetNextHop() == nil {
+					e.NextHopGroup.NextHopGroup.NextHop[i] = &gribi_aft.Afts_NextHopGroup_NextHopKey{
+						Index:   nh.Index,
+						NextHop: &gribi_aft.Afts_NextHopGroup_NextHop{Weight: &ywrapper.UintValue{}},
+					}
+				}
+			}
+			//
+			_, fails, err = t.rib.AddEntry(afte.NetworkInstance, &spb.AFTOperation{
 				Id:              uint64(i),
 				NetworkInstance: afte.GetNetworkInstance(),
 				Op:              spb.AFTOperation_ADD,
@@ -135,6 +169,11 @@ func (a *App) targetRIBGet(ctx context.Context, t *target) error {
 		}
 		if err != nil {
 			return err
+		}
+		if len(fails) > 0 {
+			for _, failOp := range fails {
+				a.Logger.Errorf("target %q OP failed:\nindex: %v\nop:\n%s\nerror: %v", t.Config.Name, failOp.ID, prototext.Format(failOp.Op), failOp.Error)
+			}
 		}
 	}
 	return nil

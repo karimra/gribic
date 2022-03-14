@@ -2,10 +2,10 @@
 # set under an operation configuration.
 default-network-instance: default
 
-# params:
-#   redundancy:
-#   persistence:
-#   ack-type:
+params:
+  redundancy: single-primary
+  persistence: preserve
+  ack-type: fib
 
 # list of operations to send towards targets,
 # only NH, NHG and IPv4 are supported

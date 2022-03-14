@@ -204,16 +204,24 @@ func (a *App) gribiModify(ctx context.Context, t *target) chan *modifyResponse {
 
 func (a *App) createModifyRequestParams() (*spb.ModifyRequest, error) {
 	opts := make([]api.GRIBIOption, 0, 4)
-	if a.Config.ModifySessionPersistancePreserve {
+	fileInput, err := config.ReadModifyFile(a.Config.ModifyInputFile)
+	if err != nil {
+		return nil, err
+	}
+
+	if a.Config.ModifySessionPersistancePreserve ||
+		(fileInput.Params.Persistence == "preserve" && !a.Config.ModifySessionPersistancePreserve) {
 		opts = append(opts, api.PersistencePreserve())
 	}
-	if a.Config.ModifySessionRedundancySinglePrimary {
+	if a.Config.ModifySessionRedundancySinglePrimary ||
+		(fileInput.Params.Redundancy == "single-primary" && !a.Config.ModifySessionRedundancySinglePrimary) {
 		opts = append(opts,
 			api.RedundancySinglePrimary(),
 			api.ElectionID(a.electionID),
 		)
 	}
-	if a.Config.ModifySessionRibFibAck {
+	if a.Config.ModifySessionRibFibAck ||
+		(fileInput.Params.AckType == "rib-fib" && !a.Config.ModifySessionRibFibAck) {
 		opts = append(opts, api.AckTypeRibFib())
 	}
 	return api.NewModifyRequest(opts...)

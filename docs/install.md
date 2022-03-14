@@ -13,13 +13,12 @@ bash -c "$(curl -sL https://get-gribic.kmrd.dev)"
 As a result, the latest `gribic` version will be installed in the `/usr/local/bin` directory and the version information will be printed out.
 
 ```text
-Downloading gribic_0.0.2_darwin_x86_64.tar.gz
-Preparing to install gribic 0.0.2 into /usr/local/bin
-
+Downloading https://github.com/karimra/gribic/releases/download/v0.0.1/gribic_0.0.1_linux_x86_64.tar.gz
+Preparing to install gribic 0.0.1 into /usr/local/bin
 gribic installed into /usr/local/bin/gribic
-version : 0.0.2
- commit : 3bb2670
-   date : 2021-05-05T16:39:59Z
+version : 0.0.1
+ commit : 90c5d07
+   date : 2022-03-13T19:05:43Z
  gitURL : https://github.com/karimra/gribic
    docs : https://gribic.kmrd.dev
 ```

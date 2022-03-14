@@ -21,10 +21,10 @@ type flushResponse struct {
 func (a *App) InitFlushFlags(cmd *cobra.Command) {
 	cmd.ResetFlags()
 	//
-	cmd.Flags().StringVarP(&a.Config.GetNetworkInstance, "ns", "", "", "network instance name, ")
-	cmd.Flags().BoolVarP(&a.Config.FlushNetworkInstanceAll, "ns-all", "", false, "run Get against all network instance")
+	cmd.Flags().StringVarP(&a.Config.GetNetworkInstance, "ns", "", "", "network instance name")
+	cmd.Flags().BoolVarP(&a.Config.FlushNetworkInstanceAll, "ns-all", "", false, "run Get against all network instance(s)")
 
-	cmd.Flags().BoolVarP(&a.Config.FlushElectionIDOverride, "override-id", "", false, "override election ID")
+	cmd.Flags().BoolVarP(&a.Config.FlushElectionIDOverride, "override", "", false, "override election ID")
 	//
 	cmd.Flags().VisitAll(func(flag *pflag.Flag) {
 		a.Config.FileConfig.BindPFlag(fmt.Sprintf("%s-%s", cmd.Name(), flag.Name), flag)
@@ -34,7 +34,7 @@ func (a *App) InitFlushFlags(cmd *cobra.Command) {
 func (a *App) FlushPreRunE(cmd *cobra.Command, args []string) error {
 	// parse election ID
 	var err error
-	a.electionID, err = parseUint128(a.Config.ElectionID)
+	a.electionID, err = parseUint128(a.Config.GlobalFlags.ElectionID)
 	if err != nil {
 		return err
 	}
@@ -122,7 +122,7 @@ func (a *App) gribiFlush(ctx context.Context, t *target) (*spb.FlushResponse, er
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(prototext.Format(req))
+	a.Logger.Debugf("target %s request:\n%s", t.Config.Name, prototext.Format(req))
 	t.gRIBIClient = spb.NewGRIBIClient(t.conn)
 	return a.flush(ctx, t, req)
 }

@@ -21,9 +21,9 @@ type getResponse struct {
 func (a *App) InitGetFlags(cmd *cobra.Command) {
 	cmd.ResetFlags()
 	//
-	cmd.Flags().StringVarP(&a.Config.GetNetworkInstance, "ns", "", "", "network instance name, ")
-	cmd.Flags().BoolVarP(&a.Config.GetNetworkInstanceAll, "ns-all", "", false, "run Get against all network instance")
-	cmd.Flags().StringVarP(&a.Config.GetAFT, "aft", "", "ALL", "AFT type")
+	cmd.Flags().StringVarP(&a.Config.GetNetworkInstance, "ns", "", "", "network instance name")
+	cmd.Flags().BoolVarP(&a.Config.GetNetworkInstanceAll, "ns-all", "", false, "run Get against all network instance(s)")
+	cmd.Flags().StringVarP(&a.Config.GetAFT, "aft", "", "ALL", "AFT type, one of: ALL, IPv4, IPv6, NH, NHG, MPLS, MAC or PF")
 
 	//
 	cmd.Flags().VisitAll(func(flag *pflag.Flag) {
@@ -123,15 +123,15 @@ func (a *App) get(ctx context.Context, t *target, req *spb.GetRequest) (*spb.Get
 	for {
 		getres, err := stream.Recv()
 		if err == io.EOF {
-			a.Logger.Infof("target %s: EOF", t.Config.Name)
+			a.Logger.Debugf("target %s: received EOF", t.Config.Name)
 			break
 		}
 		if err != nil {
 			return nil, err
 		}
-		a.Logger.Infof("target %s intermediate get response: %v", t.Config.Name, getres)
+		a.Logger.Debugf("target %s: intermediate get response: %v", t.Config.Name, getres)
 		resp.Entry = append(resp.Entry, getres.GetEntry()...)
 	}
-	a.Logger.Infof("target %s final get response: %+v", t.Config.Name, resp)
+	a.Logger.Infof("target %s: final get response: %+v", t.Config.Name, resp)
 	return resp, nil
 }

@@ -28,7 +28,7 @@ type App struct {
 	wg *sync.WaitGroup
 	// gRIBIc config
 	Config *config.Config
-	// gRIBI client elctionID
+	// gRIBI client electionID
 	electionID *spb.Uint128
 	// gRIBI targets, ie routers
 	m       *sync.RWMutex

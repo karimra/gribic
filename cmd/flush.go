@@ -10,10 +10,10 @@ import (
 
 func newFlushCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "flush",
-		Aliases: []string{"f"},
-		Short:   "run gRIBI Flush RPC",
-
+		Use:          "flush",
+		Aliases:      []string{"f"},
+		Short:        "run gRIBI Flush RPC",
+		PreRunE:      gApp.FlushPreRunE,
 		RunE:         gApp.FlushRunE,
 		SilenceUsage: true,
 	}

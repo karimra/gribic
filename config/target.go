@@ -17,6 +17,10 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+const (
+	defaultNetworkInstanceName = "default"
+)
+
 type TargetConfig struct {
 	Name          string        `json:"name,omitempty" mapstructure:"name,omitempty"`
 	Address       string        `json:"address,omitempty" mapstructure:"address,omitempty"`
@@ -105,6 +109,9 @@ func (c *Config) parseAddress(tc *TargetConfig, addr string) error {
 func (c *Config) setTargetConfigDefaults(tc *TargetConfig) {
 	if tc.Name == "" {
 		tc.Name = tc.Address
+	}
+	if tc.DefaultNI == "" {
+		tc.DefaultNI = defaultNetworkInstanceName
 	}
 	if c.Insecure {
 		tc.Insecure = &c.Insecure

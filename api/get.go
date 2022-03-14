@@ -70,3 +70,35 @@ func AFTType(typ string) func(m proto.Message) error {
 		return nil
 	}
 }
+
+func AFTTypeAll() func(m proto.Message) error {
+	return AFTType("ALL")
+}
+
+func AFTTypeIPv4() func(m proto.Message) error {
+	return AFTType("IPV4")
+}
+
+func AFTTypeIPv6() func(m proto.Message) error {
+	return AFTType("IPV6")
+}
+
+func AFTTypeMPLS() func(m proto.Message) error {
+	return AFTType("MPLS")
+}
+
+func AFTTypeNEXTHOP() func(m proto.Message) error {
+	return AFTType("NEXTHOP")
+}
+
+func AFTTypNHG() func(m proto.Message) error {
+	return AFTType("NHG")
+}
+
+func AFTTypeMAC() func(m proto.Message) error {
+	return AFTType("MAC")
+}
+
+func AFTTypePF() func(m proto.Message) error {
+	return AFTType("PF")
+}

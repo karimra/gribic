@@ -11,9 +11,10 @@ type OperationConfig struct {
 	NetworkInstance string `yaml:"network-instance,omitempty"`
 	Operation       string `yaml:"op,omitempty"`
 	//
-	IPv4 *ipv4Entry `yaml:"ipv4,omitempty"`
-	NHG  *nhgEntry  `yaml:"nhg,omitempty"`
-	NH   *nhEntry   `yaml:"nh,omitempty"`
+	IPv6 *ipv4v6Entry `yaml:"ipv6,omitempty"`
+	IPv4 *ipv4v6Entry `yaml:"ipv4,omitempty"`
+	NHG  *nhgEntry    `yaml:"nhg,omitempty"`
+	NH   *nhEntry     `yaml:"nh,omitempty"`
 	//
 	ElectionID uint64 `yaml:"election-id,omitempty"`
 }
@@ -28,9 +29,9 @@ type modifyInput struct {
 	Operations []*OperationConfig `yaml:"operations,omitempty"`
 }
 
-type ipv4Entry struct {
+type ipv4v6Entry struct {
 	Type string `yaml:"type,omitempty"`
-	// ipv4
+	// ipv4v6
 	Prefix             string `yaml:"prefix,omitempty"`
 	NHG                uint64 `yaml:"nhg,omitempty"`
 	NHGNetworkInstance string `yaml:"nhg-network-instance,omitempty"`

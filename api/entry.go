@@ -66,6 +66,11 @@ func NetworkInstance(ns string) func(proto.Message) error {
 				msg.Ipv4Entry = new(gribi_aft.Afts_Ipv4Entry)
 			}
 			msg.Ipv4Entry.NextHopGroupNetworkInstance = &ywrapper.StringValue{Value: ns}
+		case *gribi_aft.Afts_Ipv6EntryKey:
+			if msg.Ipv6Entry == nil {
+				msg.Ipv6Entry = new(gribi_aft.Afts_Ipv6Entry)
+			}
+			msg.Ipv6Entry.NextHopGroupNetworkInstance = &ywrapper.StringValue{Value: ns}
 		default:
 			return fmt.Errorf("option NetworkInstance: %w: %T", ErrInvalidMsgType, msg)
 		}
@@ -223,6 +228,22 @@ func DecapsulateHeader(typ string) func(proto.Message) error {
 				msg.Ipv4Entry.DecapsulateHeader = enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_IPV6
 			case "MPLS":
 				msg.Ipv4Entry.DecapsulateHeader = enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_MPLS
+			default:
+				return fmt.Errorf("option DecapsulateHeader: %w: %T", ErrInvalidValue, msg)
+			}
+		case *gribi_aft.Afts_Ipv6EntryKey:
+			if msg.Ipv6Entry == nil {
+				msg.Ipv6Entry = new(gribi_aft.Afts_Ipv6Entry)
+			}
+			switch strings.ToUpper(typ) {
+			case "GRE":
+				msg.Ipv6Entry.DecapsulateHeader = enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_GRE
+			case "IPV4":
+				msg.Ipv6Entry.DecapsulateHeader = enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_IPV4
+			case "IPV6":
+				msg.Ipv6Entry.DecapsulateHeader = enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_IPV6
+			case "MPLS":
+				msg.Ipv6Entry.DecapsulateHeader = enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_MPLS
 			default:
 				return fmt.Errorf("option DecapsulateHeader: %w: %T", ErrInvalidValue, msg)
 			}
@@ -604,7 +625,7 @@ func IPv4Entry(opts ...GRIBIOption) func(proto.Message) error {
 			}
 			return nil
 		default:
-			return fmt.Errorf("option EntryIPv4: %w: %T", ErrInvalidMsgType, msg)
+			return fmt.Errorf("option IPv4Entry: %w: %T", ErrInvalidMsgType, msg)
 		}
 	}
 }
@@ -616,6 +637,8 @@ func Prefix(prefix string) func(proto.Message) error {
 		}
 		switch msg := msg.ProtoReflect().Interface().(type) {
 		case *gribi_aft.Afts_Ipv4EntryKey:
+			msg.Prefix = prefix
+		case *gribi_aft.Afts_Ipv6EntryKey:
 			msg.Prefix = prefix
 		default:
 			return fmt.Errorf("option Prefix: %w: %T", ErrInvalidMsgType, msg)
@@ -638,6 +661,11 @@ func Metadata(md []byte) func(proto.Message) error {
 				msg.Ipv4Entry = new(gribi_aft.Afts_Ipv4Entry)
 			}
 			msg.Ipv4Entry.EntryMetadata = &ywrapper.BytesValue{Value: md}
+		case *gribi_aft.Afts_Ipv6EntryKey:
+			if msg.Ipv6Entry == nil {
+				msg.Ipv6Entry = new(gribi_aft.Afts_Ipv6Entry)
+			}
+			msg.Ipv6Entry.EntryMetadata = &ywrapper.BytesValue{Value: md}
 		default:
 			return fmt.Errorf("option Metadata: %w: %T", ErrInvalidMsgType, msg)
 		}
@@ -656,9 +684,37 @@ func NHG(id uint64) func(proto.Message) error {
 				msg.Ipv4Entry = new(gribi_aft.Afts_Ipv4Entry)
 			}
 			msg.Ipv4Entry.NextHopGroup = &ywrapper.UintValue{Value: id}
+		case *gribi_aft.Afts_Ipv6EntryKey:
+			if msg.Ipv6Entry == nil {
+				msg.Ipv6Entry = new(gribi_aft.Afts_Ipv6Entry)
+			}
+			msg.Ipv6Entry.NextHopGroup = &ywrapper.UintValue{Value: id}
 		default:
 			return fmt.Errorf("option NHG: %w: %T", ErrInvalidMsgType, msg)
 		}
 		return nil
+	}
+}
+
+// IPv6 Entry Options
+func IPv6Entry(opts ...GRIBIOption) func(proto.Message) error {
+	return func(msg proto.Message) error {
+		if msg == nil {
+			return ErrInvalidMsgType
+		}
+		switch msg := msg.ProtoReflect().Interface().(type) {
+		case *spb.AFTOperation:
+			ipv6 := new(gribi_aft.Afts_Ipv6EntryKey)
+			err := apply(ipv6, opts...)
+			if err != nil {
+				return err
+			}
+			msg.Entry = &spb.AFTOperation_Ipv6{
+				Ipv6: ipv6,
+			}
+			return nil
+		default:
+			return fmt.Errorf("option IPv6Entry: %w: %T", ErrInvalidMsgType, msg)
+		}
 	}
 }

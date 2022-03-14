@@ -246,6 +246,17 @@ func (a *App) createAftOper(opc *config.OperationConfig) (*spb.AFTOperation, err
 	}
 
 	switch {
+	case opc.IPv6 != nil:
+		// append IPv6Entry option
+		opts = append(opts,
+			api.IPv6Entry(
+				api.Prefix(opc.IPv6.Prefix),
+				api.DecapsulateHeader(opc.IPv6.DecapsulateHeader),
+				api.Metadata([]byte(opc.IPv6.EntryMetadata)),
+				api.NHG(opc.IPv6.NHG),
+				api.NetworkInstance(opc.IPv6.NHGNetworkInstance),
+			),
+		)
 	case opc.IPv4 != nil:
 		// append IPv4Entry option
 		opts = append(opts,

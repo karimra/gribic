@@ -21,7 +21,7 @@ type flushResponse struct {
 func (a *App) InitFlushFlags(cmd *cobra.Command) {
 	cmd.ResetFlags()
 	//
-	cmd.Flags().StringVarP(&a.Config.GetNetworkInstance, "ns", "", "", "network instance name")
+	cmd.Flags().StringVarP(&a.Config.FlushNetworkInstance, "ns", "", "", "network instance name")
 	cmd.Flags().BoolVarP(&a.Config.FlushNetworkInstanceAll, "ns-all", "", false, "run Get against all network instance(s)")
 
 	cmd.Flags().BoolVarP(&a.Config.FlushElectionIDOverride, "override", "", false, "override election ID")

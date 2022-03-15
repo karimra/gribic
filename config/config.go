@@ -54,6 +54,8 @@ type GlobalFlags struct {
 }
 
 type LocalFlags struct {
+	// version
+	UpgradeUsePkg bool
 	// Get
 	GetNetworkInstance    string
 	GetAFT                string
@@ -116,7 +118,7 @@ func (c *Config) Load(ctx context.Context) error {
 		c.FileConfig.AddConfigPath(".")
 		c.FileConfig.AddConfigPath(home)
 		c.FileConfig.AddConfigPath(xdg.ConfigHome)
-		c.FileConfig.AddConfigPath(xdg.ConfigHome + "/gnoic")
+		c.FileConfig.AddConfigPath(xdg.ConfigHome + "/gribic")
 		c.FileConfig.SetConfigName(configName)
 	}
 

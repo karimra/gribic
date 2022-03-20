@@ -20,8 +20,7 @@ type getResponse struct {
 func (a *App) InitGetFlags(cmd *cobra.Command) {
 	cmd.ResetFlags()
 	//
-	cmd.Flags().StringVarP(&a.Config.GetNetworkInstance, "ns", "", "", "network instance name")
-	cmd.Flags().BoolVarP(&a.Config.GetNetworkInstanceAll, "ns-all", "", false, "run Get against all network instance(s)")
+	cmd.Flags().StringVarP(&a.Config.GetNetworkInstance, "ns", "", "", "network instance name, an empty network-instance name means query all instances.")
 	cmd.Flags().StringVarP(&a.Config.GetAFT, "aft", "", "ALL", "AFT type, one of: ALL, IPv4, IPv6, NH, NHG, MPLS, MAC or PF")
 
 	//
@@ -97,7 +96,7 @@ func (a *App) GetRunE(cmd *cobra.Command, args []string) error {
 func (a *App) gribiGet(ctx context.Context, t *target) (*spb.GetResponse, error) {
 	opts := make([]api.GRIBIOption, 0, 2)
 	opts = append(opts, api.AFTType(a.Config.GetAFT))
-	if a.Config.GetNetworkInstanceAll {
+	if a.Config.GetNetworkInstance == "" {
 		opts = append(opts, api.NSAll())
 	} else {
 		opts = append(opts, api.NetworkInstance(a.Config.GetNetworkInstance))

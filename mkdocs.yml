@@ -2,6 +2,15 @@ site_name: gRIBIc
 nav:
   - Home: index.md
 
+  - Getting started:
+      - Installation: install.md
+      - User guide: user_guide.md
+      - Command reference: cmd/get.md
+  - Command reference:
+      - Get: cmd/get.md
+      - Flush: cmd/flush.md
+      - Modify: cmd/modify.md
+      
 site_author: Karim Radhouani
 site_description: >-
   Openconfig gRIBI client 

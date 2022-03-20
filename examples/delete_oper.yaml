@@ -27,7 +27,6 @@ operations:
         - index: 1
           # weight: 1 # uint
       # programmed-id: # uint   
-
   - op: delete
     # network-instance: #
     # election-id: #

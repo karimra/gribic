@@ -37,6 +37,10 @@ type TargetConfig struct {
 	TLSMaxVersion string        `json:"tls-max-version,omitempty" mapstructure:"tls-max-version,omitempty"`
 	TLSVersion    string        `json:"tls-version,omitempty" mapstructure:"tls-version,omitempty"`
 	Gzip          *bool         `json:"gzip,omitempty" mapstructure:"gzip,omitempty"`
+	// modify RPC session params
+	// Redundancy  string `json:"redundancy,omitempty" mapstructure:"redundancy,omitempty"`
+	// Persistence string `json:"persistence,omitempty" mapstructure:"persistence,omitempty"`
+	// AckType     string `json:"ack-type,omitempty" mapstructure:"ack-type,omitempty"`
 }
 
 func (c *Config) GetTargets() (map[string]*TargetConfig, error) {

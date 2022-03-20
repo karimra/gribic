@@ -2,12 +2,12 @@ package app
 
 import (
 	"context"
+	"errors"
 
 	"github.com/karimra/gribic/api"
 	"github.com/karimra/gribic/config"
 	spb "github.com/openconfig/gribi/v1/proto/service"
 	"github.com/spf13/cobra"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/encoding/prototext"
 )
 
@@ -38,8 +38,14 @@ func (a *App) ModifyPreRunE(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	// TODO: validate flags
-	//
+	if a.Config.ModifyInputFile == "" {
+		return errors.New("missing --input-file value")
+	}
+
+	err = a.Config.ReadModifyFileTemplate()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -59,7 +65,7 @@ func (a *App) ModifyRunE(cmd *cobra.Command, args []string) error {
 			ctx, cancel := context.WithCancel(a.ctx)
 			defer cancel()
 			// append credentials to context
-			ctx = metadata.AppendToOutgoingContext(ctx, "username", *t.Config.Username, "password", *t.Config.Password)
+			ctx = appendCredentials(ctx, t.Config)
 			// create a grpc conn
 			err = a.CreateGrpcClient(ctx, t, a.createBaseDialOpts()...)
 			if err != nil {
@@ -115,8 +121,18 @@ func (a *App) gribiModify(ctx context.Context, t *target) chan *modifyResponse {
 			}
 			return
 		}
+		modifyInput, err := a.Config.GenerateModifyInputs(t.Config.Name)
+		if err != nil {
+			rspCh <- &modifyResponse{
+				TargetError: TargetError{
+					TargetName: t.Config.Name,
+					Err:        err,
+				},
+			}
+		}
+
 		// session parameters
-		modParams, err := a.createModifyRequestParams()
+		modParams, err := a.createModifyRequestParams(modifyInput)
 		if err != nil {
 			rspCh <- &modifyResponse{
 				TargetError: TargetError{
@@ -149,8 +165,15 @@ func (a *App) gribiModify(ctx context.Context, t *target) chan *modifyResponse {
 		if err != nil {
 			return
 		}
-		// TODO: compare returned session params and electionID
-		modReqs, err := a.createModifyRequestOperation()
+		if a.electionID.High < modRsp.ElectionId.High {
+			a.Logger.Infof("target's last known electionID is higher than client's: %+v > %+v", modRsp.ElectionId, a.electionID)
+			return
+		}
+		if a.electionID.High == modRsp.ElectionId.High && a.electionID.Low < modRsp.ElectionId.Low {
+			a.Logger.Infof("target's last known electionID is higher than client's: %+v > %+v", modRsp.ElectionId, a.electionID)
+			return
+		}
+		modReqs, err := a.createModifyRequestOperation(modifyInput)
 		if err != nil {
 			rspCh <- &modifyResponse{
 				TargetError: TargetError{
@@ -202,38 +225,32 @@ func (a *App) gribiModify(ctx context.Context, t *target) chan *modifyResponse {
 	return rspCh
 }
 
-func (a *App) createModifyRequestParams() (*spb.ModifyRequest, error) {
+func (a *App) createModifyRequestParams(modifyInput *config.ModifyInput) (*spb.ModifyRequest, error) {
 	opts := make([]api.GRIBIOption, 0, 4)
-	fileInput, err := config.ReadModifyFile(a.Config.ModifyInputFile)
-	if err != nil {
-		return nil, err
-	}
 
 	if a.Config.ModifySessionPersistancePreserve ||
-		(fileInput.Params.Persistence == "preserve" && !a.Config.ModifySessionPersistancePreserve) {
+		(modifyInput.Params.Persistence == "preserve" && !a.Config.ModifySessionPersistancePreserve) {
 		opts = append(opts, api.PersistencePreserve())
 	}
 	if a.Config.ModifySessionRedundancySinglePrimary ||
-		(fileInput.Params.Redundancy == "single-primary" && !a.Config.ModifySessionRedundancySinglePrimary) {
+		(modifyInput.Params.Redundancy == "single-primary" && !a.Config.ModifySessionRedundancySinglePrimary) {
 		opts = append(opts,
 			api.RedundancySinglePrimary(),
 			api.ElectionID(a.electionID),
 		)
 	}
 	if a.Config.ModifySessionRibFibAck ||
-		(fileInput.Params.AckType == "rib-fib" && !a.Config.ModifySessionRibFibAck) {
+		(modifyInput.Params.AckType == "rib-fib" && !a.Config.ModifySessionRibFibAck) {
 		opts = append(opts, api.AckTypeRibFib())
 	}
 	return api.NewModifyRequest(opts...)
 }
 
-func (a *App) createModifyRequestOperation() ([]*spb.ModifyRequest, error) {
+func (a *App) createModifyRequestOperation(modifyInput *config.ModifyInput) ([]*spb.ModifyRequest, error) {
 	reqs := make([]*spb.ModifyRequest, 0)
-	ops, err := config.ReadModifyFile(a.Config.ModifyInputFile)
-	if err != nil {
-		return nil, err
-	}
-	for _, op := range ops.Operations {
+
+	for _, op := range modifyInput.Operations {
+
 		req := new(spb.ModifyRequest)
 		aftOp, err := a.createAftOper(op)
 		if err != nil {

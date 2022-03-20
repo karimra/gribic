@@ -21,7 +21,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/prototext"
 )
@@ -59,7 +58,7 @@ func (a *App) RunEServer(cmd *cobra.Command, args []string) error {
 			ctx, cancel := context.WithCancel(a.ctx)
 			defer cancel()
 			// append credentials to context
-			ctx = metadata.AppendToOutgoingContext(ctx, "username", *t.Config.Username, "password", *t.Config.Password)
+			ctx = appendCredentials(ctx, t.Config)
 			// create a grpc conn
 		CR_CLIENT:
 			err = a.CreateGrpcClient(ctx, t, a.createBaseDialOpts()...)

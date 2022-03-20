@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/grpclog"
+	"google.golang.org/grpc/metadata"
 )
 
 type App struct {
@@ -163,4 +164,14 @@ func parseUint128(v string) (*spb.Uint128, error) {
 		return &spb.Uint128{High: uint64(v0i), Low: uint64(v1i)}, nil
 	}
 	return nil, nil
+}
+
+func appendCredentials(ctx context.Context, tc *config.TargetConfig) context.Context {
+	if tc.Username != nil {
+		ctx = metadata.AppendToOutgoingContext(ctx, "username", *tc.Username)
+	}
+	if tc.Password != nil {
+		ctx = metadata.AppendToOutgoingContext(ctx, "password", *tc.Password)
+	}
+	return ctx
 }

@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/adrg/xdg"
@@ -26,8 +27,10 @@ type Config struct {
 	LocalFlags  `mapstructure:",squash"`
 	FileConfig  *viper.Viper `mapstructure:"-" json:"-" yaml:"-" `
 
-	GnmiServer *gnmiServer `mapstructure:"gnmi-server,omitempty" json:"gnmi-server,omitempty" yaml:"gnmi-server,omitempty"`
-	logger     *log.Entry
+	GnmiServer          *gnmiServer `mapstructure:"gnmi-server,omitempty" json:"gnmi-server,omitempty" yaml:"gnmi-server,omitempty"`
+	logger              *log.Entry
+	modifyInputTemplate *template.Template
+	modifyInputVars     map[string]interface{}
 }
 
 type GlobalFlags struct {
@@ -75,7 +78,8 @@ type LocalFlags struct {
 	// ModifySessionRibAck    bool
 	ModifySessionRibFibAck bool
 	// modify operations
-	ModifyInputFile string
+	ModifyInputFile     string
+	ModifyInputVarsFile string
 }
 
 func New() *Config {
@@ -83,6 +87,8 @@ func New() *Config {
 		GlobalFlags{},
 		LocalFlags{},
 		viper.NewWithOptions(viper.KeyDelimiter("/")),
+		nil,
+		nil,
 		nil,
 		nil,
 	}

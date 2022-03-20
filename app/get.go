@@ -9,7 +9,6 @@ import (
 	spb "github.com/openconfig/gribi/v1/proto/service"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/encoding/prototext"
 )
 
@@ -48,7 +47,7 @@ func (a *App) GetRunE(cmd *cobra.Command, args []string) error {
 			ctx, cancel := context.WithCancel(a.ctx)
 			defer cancel()
 			// append credentials to context
-			ctx = metadata.AppendToOutgoingContext(ctx, "username", *t.Config.Username, "password", *t.Config.Password)
+			ctx = appendCredentials(ctx, t.Config)
 			// create a grpc conn
 			err = a.CreateGrpcClient(ctx, t, a.createBaseDialOpts()...)
 			if err != nil {
@@ -134,4 +133,27 @@ func (a *App) get(ctx context.Context, t *target, req *spb.GetRequest) (*spb.Get
 	}
 	a.Logger.Infof("target %s: final get response: %+v", t.Config.Name, resp)
 	return resp, nil
+}
+
+func (a *App) getChan(ctx context.Context, t *target, req *spb.GetRequest) (chan *spb.GetResponse, chan error) {
+	rspChan := make(chan *spb.GetResponse)
+	errChan := make(chan error)
+	go func() {
+		defer close(rspChan)
+		defer close(errChan)
+		stream, err := t.gRIBIClient.Get(ctx, req)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		for {
+			getres, err := stream.Recv()
+			if err != nil {
+				errChan <- err
+				return
+			}
+			rspChan <- getres
+		}
+	}()
+	return rspChan, errChan
 }

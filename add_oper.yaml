@@ -9,7 +9,18 @@ params:
 
 # list of operations to send towards targets,
 # only NH, NHG and IPv4 are supported.
-operations:  
+operations:
+  - op: add
+    nhg:
+      id: 1
+      # backup-nhg: # uint
+      # color: # uint
+      next-hop:
+        - index: 1
+          # weight: 1 # uint
+        - index: 2
+      # programmed-id: # uint   
+  
   - op: add
     # network-instance: #
     # election-id: #
@@ -28,17 +39,26 @@ operations:
       # pushed-mpls-label-stack:
       #   - type: # ipv4-explicit, router-alert, ipv6-explicit, implicit, entropy-label-indicator, no-label
       #     label: # uint
-
-  - op: add
-    nhg:
-      id: 1
-      # backup-nhg: # uint
-      # color: # uint
-      next-hop:
-        - index: 1
-          # weight: 1 # uint
-      # programmed-id: # uint   
   
+  - op: add
+    # network-instance: #
+    # election-id: #
+    nh:
+      index: 2
+      ip-address: 192.168.2.2
+      # interface-reference:
+      #   interface:
+      #   subinterface:
+      # ip-in-ip:
+      #   dst-ip:
+      #   src-ip:
+      # mac:
+      # network-instance:
+      # programmed-index:
+      # pushed-mpls-label-stack:
+      #   - type: # ipv4-explicit, router-alert, ipv6-explicit, implicit, entropy-label-indicator, no-label
+      #     label: # uint
+ 
   - op: add
     # network-instance: not_default
     ipv4:

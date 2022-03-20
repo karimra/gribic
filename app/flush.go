@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/karimra/gribic/api"
@@ -37,7 +38,9 @@ func (a *App) FlushPreRunE(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	// TODO: validate flags
+	if !a.Config.FlushNetworkInstanceAll && a.Config.FlushNetworkInstance == "" {
+		return errors.New("set a specific network-instance name to flush using --ns or flush all network-instances with --ns-all")
+	}
 	return nil
 }
 

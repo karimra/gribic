@@ -60,10 +60,8 @@ type LocalFlags struct {
 	// version
 	UpgradeUsePkg bool
 	// Get
-	GetNetworkInstance    string
-	GetAFT                string
-	GetNetworkInstanceAll bool
-
+	GetNetworkInstance string
+	GetAFT             string
 	// flush
 	FlushNetworkInstance    string
 	FlushNetworkInstanceAll bool

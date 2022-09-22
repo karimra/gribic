@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/karimra/gribic/api"
+	"github.com/karimra/gribic/config"
 	spb "github.com/openconfig/gribi/v1/proto/service"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -33,10 +34,12 @@ func (a *App) InitFlushFlags(cmd *cobra.Command) {
 
 func (a *App) FlushPreRunE(cmd *cobra.Command, args []string) error {
 	// parse election ID
-	var err error
-	a.electionID, err = parseUint128(a.Config.GlobalFlags.ElectionID)
-	if err != nil {
-		return err
+	if flagIsSet(cmd, "election-id") {
+		var err error
+		a.electionID, err = config.ParseUint128(a.Config.GlobalFlags.ElectionID)
+		if err != nil {
+			return err
+		}
 	}
 	if !a.Config.FlushNetworkInstanceAll && a.Config.FlushNetworkInstance == "" {
 		return errors.New("set a specific network-instance name to flush using --ns or flush all network-instances with --ns-all")
@@ -117,7 +120,7 @@ func (a *App) gribiFlush(ctx context.Context, t *target) (*spb.FlushResponse, er
 	switch {
 	case a.Config.FlushElectionIDOverride:
 		opts = append(opts, api.Override())
-	default:
+	case a.electionID != nil:
 		opts = append(opts, api.ElectionID(a.electionID))
 	}
 	req, err := api.NewFlushRequest(opts...)

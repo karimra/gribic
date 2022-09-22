@@ -27,10 +27,14 @@ type Config struct {
 	LocalFlags  `mapstructure:",squash"`
 	FileConfig  *viper.Viper `mapstructure:"-" json:"-" yaml:"-" `
 
-	GnmiServer          *gnmiServer `mapstructure:"gnmi-server,omitempty" json:"gnmi-server,omitempty" yaml:"gnmi-server,omitempty"`
-	logger              *log.Entry
+	GnmiServer *gnmiServer `mapstructure:"gnmi-server,omitempty" json:"gnmi-server,omitempty" yaml:"gnmi-server,omitempty"`
+	logger     *log.Entry
+	//
 	modifyInputTemplate *template.Template
 	modifyInputVars     map[string]interface{}
+	//
+	workflowTemplate *template.Template
+	workflowVars     map[string]interface{}
 }
 
 type GlobalFlags struct {
@@ -78,6 +82,10 @@ type LocalFlags struct {
 	// modify operations
 	ModifyInputFile     string
 	ModifyInputVarsFile string
+
+	// workflow
+	WorkflowFile          string
+	WorkflowInputVarsFile string
 }
 
 func New() *Config {
@@ -85,6 +93,8 @@ func New() *Config {
 		GlobalFlags{},
 		LocalFlags{},
 		viper.NewWithOptions(viper.KeyDelimiter("/")),
+		nil,
+		nil,
 		nil,
 		nil,
 		nil,
@@ -140,7 +150,7 @@ func (c *Config) Load(ctx context.Context) error {
 	return nil
 }
 
-func (c *Config) SetPersistantFlagsFromFile(cmd *cobra.Command) {
+func (c *Config) SetPersistentFlagsFromFile(cmd *cobra.Command) {
 	// set debug and log values from file before other persistant flags
 	cmd.PersistentFlags().VisitAll(func(f *pflag.Flag) {
 		if f.Name == "debug" || f.Name == "log" {

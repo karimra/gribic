@@ -179,6 +179,9 @@ func IPAddress(ipAddr string) func(proto.Message) error {
 		}
 		switch msg := msg.ProtoReflect().Interface().(type) {
 		case *gribi_aft.Afts_NextHopKey:
+			if ipAddr == "" {
+				return nil
+			}
 			if msg.NextHop == nil {
 				msg.NextHop = new(gribi_aft.Afts_NextHop)
 			}

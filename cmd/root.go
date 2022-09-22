@@ -16,7 +16,7 @@ func newRootCmd() *cobra.Command {
 		Use:   "gribic",
 		Short: "run gRIBI RPCs from the terminal",
 		PreRun: func(cmd *cobra.Command, args []string) {
-			gApp.Config.SetPersistantFlagsFromFile(cmd)
+			gApp.Config.SetPersistentFlagsFromFile(cmd)
 		},
 		PersistentPreRunE: gApp.PreRun,
 	}
@@ -30,6 +30,7 @@ func newRootCmd() *cobra.Command {
 		newModifyCmd(),
 		newFlushCmd(),
 		newServerCmd(),
+		newWorkflowCmd(),
 	)
 	return gApp.RootCmd
 }

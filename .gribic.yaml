@@ -1,4 +1,3 @@
-
 targets:
   clab-gribi-srl1:
     username: admin
@@ -8,6 +7,3 @@ targets:
     username: admin
     password: admin
     skip-verify: true
-
-gnmi-server:
-  address: :57400

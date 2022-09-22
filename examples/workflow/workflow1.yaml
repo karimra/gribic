@@ -1,0 +1,106 @@
+name: wf1
+
+steps:
+  # steps can be named, 
+  # if not, the default name will be ${workflow-name}.${idx} where $idx is the step number
+  - name: step1 
+    wait-after: 1s
+    rpc: get
+    network-instance: default # "" == all
+    aft: # ipv4, ipv6, nh, nhg
+
+  - # name: wf1.2
+    rpc: flush
+    # election-if for flush request
+    # election-id: 1:1
+    
+    # overrides existing election-id on the router
+    override: true
+
+    # which network instance to flush
+    network-instance: default # all if empty
+
+  - rpc: modify
+    # wait: duration, time to wait before running the step.
+    # wait: 0s
+    # 
+    # wait-after: duration, time to wait after running the step
+    wait-after: 1s
+    
+    # election-id format uint64:uint64, high:low
+    election-id: 1:2
+    
+    # modify request params
+    session-params:
+      redundancy: single-primary # all-primary
+      persistence: preserve # delete
+      ack-type: rib # rib-fib
+    
+    # modify request operations
+    operations:
+      - id: 1
+        # election-id: 1:2
+        op: add # delete, replace
+        network-instance: default
+        nh: # next hop
+          index: 1 # nh index
+          ip-address: 192.168.1.2 # nh ip address
+          # interface-reference:
+          #   interface:
+          #   subinterface:
+          # ip-in-ip:
+          #   dst-ip:
+          #   src-ip:
+          # mac:
+          # network-instance:
+          # programmed-index:
+          # pushed-mpls-label-stack:
+          #   - type: # ipv4-explicit, router-alert, ipv6-explicit, implicit, entropy-label-indicator, no-label
+          #     label: # uint 
+      - id: 2
+        op: add # delete, replace
+        network-instance: default
+        nhg: # next hop group
+          id: 1 # nhg id
+          next-hop: # next hops
+            - index: 1
+
+  - rpc: modify
+    # election-id: 
+    wait: 1s
+    # wait-after: 1s
+    operations:
+      - id: 3
+        election-id: 
+        op: add # delete, replace
+        network-instance: default
+        nh: # next hop, nhg, ipv4, ipv6
+          index: 2 # nh index
+          ip-address: 192.168.1.3 # nh ip address
+          # interface-reference:
+          #   interface:
+          #   subinterface:
+          # ip-in-ip:
+          #   dst-ip:
+          #   src-ip:
+          # mac:
+          # network-instance:
+          # programmed-index:
+          # pushed-mpls-label-stack:
+          #   - type: # ipv4-explicit, router-alert, ipv6-explicit, implicit, entropy-label-indicator, no-label
+          #     label: # uint 
+      - id: 4
+        op: add
+        network-instance: default
+        ipv4:
+          prefix: 1.1.1.0/24
+          nhg: 1
+          # nhg-network-instance: ns1
+          # decapsulate-header: # enum: gre, ipv4, ipv6, mpls
+          # entry-metadata: # string
+  
+  - rpc: get
+    wait: 1s
+    # wait-after: 1s
+    network-instance: default
+    aft: all # 

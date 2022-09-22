@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/karimra/gnmic/utils"
 	"github.com/karimra/gribic/api"
+	"github.com/karimra/gribic/config"
 	"github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/openconfig/gribi/v1/proto/gribi_aft"
 	spb "github.com/openconfig/gribi/v1/proto/service"
@@ -21,6 +23,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/prototext"
 )
@@ -42,54 +45,55 @@ func (a *App) RunEServer(cmd *cobra.Command, args []string) error {
 	}
 	go a.startGnmiServer()
 
-	targets, err := a.GetTargets()
+	a.Targets, err = a.GetTargets()
 	if err != nil {
 		return err
 	}
-	a.Logger.Debugf("targets: %v", targets)
+	a.Logger.Debugf("targets: %v", a.Targets)
 
-	numTargets := len(targets)
+	numTargets := len(a.Targets)
 	a.wg.Add(numTargets)
 
-	for _, t := range targets {
+	for _, t := range a.Targets {
 		go func(t *target) {
 			defer a.wg.Done()
-			// create context
+			err = a.initTarget(a.ctx, t)
+			if err != nil {
+				a.Logger.Errorf("target %s gRIBI init target failed: %v", t.Config.Name, err)
+				return
+			}
 			ctx, cancel := context.WithCancel(a.ctx)
 			defer cancel()
-			// append credentials to context
-			ctx = appendCredentials(ctx, t.Config)
-			// create a grpc conn
-		CR_CLIENT:
-			err = a.CreateGrpcClient(ctx, t, a.createBaseDialOpts()...)
-			if err != nil {
-				a.Logger.Printf("%q failed to create a gRPC client: %v", t.Config.Name, err)
-				time.Sleep(2 * time.Second)
-				goto CR_CLIENT
-			}
-			defer t.Close()
-			t.gRIBIClient = spb.NewGRIBIClient(t.conn)
 			err = a.targetRIBGet(ctx, t)
 			if err != nil {
-				a.Logger.Errorf("target %s gRIBI Get failed: %v", t.Config.Name, err)
+				a.Logger.Errorf("target %q gRIBI Get failed: %v", t.Config.Name, err)
+				return
 			}
-			ticker := time.NewTicker(5 * time.Second)
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case <-ticker.C:
-					err = a.targetRIBGet(ctx, t)
-					if err != nil {
-						a.Logger.Errorf("target %s gRIBI Get failed: %v", t.Config.Name, err)
-					}
-				}
-			}
+			a.Logger.Infof("target %q gRIBI Get success", t.Config.Name)
 		}(t)
 	}
 	//
 	a.wg.Wait()
 	<-a.Context().Done()
+	return nil
+}
+
+func (a *App) initTarget(ctx context.Context, t *target) error {
+	ctx, cancel := context.WithCancel(ctx)
+	t.cfn = cancel
+	// append credentials to context
+	ctx = appendCredentials(ctx, t.Config)
+	// create a grpc conn
+CR_CLIENT:
+	err := a.CreateGrpcClient(ctx, t, a.createBaseDialOpts()...)
+	if err != nil {
+		a.Logger.Errorf("%q failed to create a gRPC client: %v", t.Config.Name, err)
+		time.Sleep(2 * time.Second)
+		goto CR_CLIENT
+	}
+	a.Logger.Infof("%q created gRPC client", t.Config.Name)
+	t.gRIBIClient = spb.NewGRIBIClient(t.conn)
+	a.Logger.Infof("%q created gRIBI client", t.Config.Name)
 	return nil
 }
 
@@ -101,6 +105,7 @@ func (a *App) targetRIBGet(ctx context.Context, t *target) error {
 	if err != nil {
 		return err
 	}
+	ctx = appendCredentials(ctx, t.Config)
 	rsp, err := a.get(ctx, t, req)
 	if err != nil {
 		return err
@@ -258,6 +263,139 @@ func (a *App) Get(ctx context.Context, req *gnmi.GetRequest) (*gnmi.GetResponse,
 	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
 }
 
-func (a *App) Set(context.Context, *gnmi.SetRequest) (*gnmi.SetResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Set not implemented")
+func (a *App) Set(ctx context.Context, req *gnmi.SetRequest) (*gnmi.SetResponse, error) {
+	numUpdates := len(req.GetUpdate())
+	numReplaces := len(req.GetReplace())
+	numDeletes := len(req.GetDelete())
+	if numUpdates+numReplaces+numDeletes == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "missing update/replace/delete path(s)")
+	}
+	//
+	targetName := req.GetPrefix().GetTarget()
+	pr, _ := peer.FromContext(ctx)
+	a.Logger.Printf("received Set request from %q to target %q", pr.Addr, targetName)
+	//
+	targets, err := a.selectGNMITargets(targetName)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "could not find targets: %v", err)
+	}
+	numTargets := len(targets)
+	if numTargets == 0 {
+		return nil, status.Errorf(codes.NotFound, "unknown target(s) %q", targetName)
+	}
+	//
+	opts := make([]api.GRIBIOption, 0, 4)
+	for _, upd := range req.Update {
+		val := strings.ToLower(upd.GetVal().GetStringVal())
+		p := utils.GnmiPathToXPath(upd.GetPath(), false)
+		fmt.Println(p, val)
+		switch p {
+		case "session-parameters/ack-type":
+			if val == "rib-fib" {
+				opts = append(opts, api.AckTypeRibFib())
+			} else {
+				opts = append(opts, api.AckTypeRib())
+			}
+		case "session-parameters/persistence":
+			if val == "preserve" {
+				opts = append(opts, api.PersistencePreserve())
+			} else {
+				opts = append(opts, api.PersistenceDelete())
+			}
+		case "session-parameters/redundancy":
+			if val == "single-primary" {
+				opts = append(opts, api.RedundancySinglePrimary())
+			} else {
+				opts = append(opts, api.RedundancyAllPrimary())
+			}
+		case "session-parameters/election-id":
+			elecID, err := config.ParseUint128(val)
+			if err != nil {
+				return nil, err
+			}
+			fmt.Println(elecID)
+			opts = append(opts, api.ElectionID(elecID))
+		}
+	}
+	modReq, err := api.NewModifyRequest(opts...)
+	if err != nil {
+		return nil, err
+	}
+	wg := new(sync.WaitGroup)
+	wg.Add(numTargets)
+	setRsp := &gnmi.SetResponse{
+		Response: []*gnmi.UpdateResult{},
+	}
+	errs := make([]error, 0, numTargets)
+	for name, t := range targets {
+		go func(name string, t *target) {
+			defer wg.Done()
+			a.Logger.Infof("target %q", name)
+			if t.modClient == nil {
+				err = t.createModifyClient(a.ctx)
+				if err != nil {
+					err = fmt.Errorf("target %q modify stream client create failed: %w", name, err)
+					a.Logger.Error(err)
+					errs = append(errs, err)
+					return
+				}
+			}
+			a.Logger.Infof("sending modify request %q to target %q", modReq, name)
+			err = t.modClient.Send(modReq)
+			if err != nil {
+				err = fmt.Errorf("target %q send error: %w", name, err)
+				a.Logger.Error(err)
+				errs = append(errs, err)
+				return
+			}
+			rsp, err := t.modClient.Recv()
+			if err != nil {
+				err = fmt.Errorf("target %q rcv error: %w", name, err)
+				a.Logger.Error(err)
+				errs = append(errs, err)
+				return
+			}
+			a.Logger.Infof("target %q rcv success: %v", name, rsp)
+			setRsp.Response = append(setRsp.Response,
+				&gnmi.UpdateResult{
+					Path: &gnmi.Path{
+						Elem: []*gnmi.PathElem{
+							{
+								Name: "session-parameters",
+							},
+						},
+					},
+					Op: gnmi.UpdateResult_UPDATE,
+				},
+			)
+		}(name, t)
+	}
+
+	wg.Wait()
+	if len(errs) > 0 {
+		return nil, fmt.Errorf("%v", errs)
+	}
+	setRsp.Timestamp = time.Now().UnixNano()
+	return setRsp, nil
+}
+
+func (a *App) selectGNMITargets(targetName string) (map[string]*target, error) {
+	if targetName == "" || targetName == "*" {
+		return a.Targets, nil
+	}
+	targetsNames := strings.Split(targetName, ",")
+	targets := make(map[string]*target)
+	a.m.RLock()
+	defer a.m.RUnlock()
+OUTER:
+	for i := range targetsNames {
+		for n, tc := range a.Targets {
+			if utils.GetHost(n) == targetsNames[i] {
+				targets[n] = tc
+				continue OUTER
+			}
+		}
+		return nil, status.Errorf(codes.NotFound, "target %q is not known", targetsNames[i])
+	}
+	return targets, nil
 }

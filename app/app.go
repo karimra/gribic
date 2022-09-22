@@ -2,8 +2,6 @@ package app
 
 import (
 	"context"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -25,6 +23,7 @@ type App struct {
 	Cfn     context.CancelFunc
 	RootCmd *cobra.Command
 
+	pm *sync.Mutex
 	// wg for cmd execution
 	wg *sync.WaitGroup
 	// gRIBIc config
@@ -52,7 +51,9 @@ func New() *App {
 		ctx:     ctx,
 		Cfn:     cancel,
 		RootCmd: new(cobra.Command),
-		Config:  config.New(),
+		pm:      new(sync.Mutex),
+
+		Config: config.New(),
 		//
 		m:       new(sync.RWMutex),
 		Targets: make(map[string]*target),
@@ -125,45 +126,6 @@ func (a *App) createBaseDialOpts() []grpc.DialOption {
 		opts = append(opts, grpc.WithDefaultCallOptions(grpc.UseCompressor(gzip.Name)))
 	}
 	return opts
-}
-
-func parseUint128(v string) (*spb.Uint128, error) {
-	if v == "" {
-		return &spb.Uint128{}, nil
-	}
-	if strings.HasPrefix(v, ":") {
-		v = "0" + v
-	}
-	if strings.HasSuffix(v, ":") {
-		v = v + "0"
-	}
-
-	lh := strings.SplitN(v, ":", 2)
-	switch len(lh) {
-	case 1:
-		vi, err := strconv.Atoi(lh[0])
-		if err != nil {
-			return nil, err
-		}
-		return &spb.Uint128{Low: uint64(vi)}, nil
-	case 2:
-		if lh[0] == "" {
-			lh[0] = "0"
-		}
-		v0i, err := strconv.Atoi(lh[0])
-		if err != nil {
-			return nil, err
-		}
-		if lh[1] == "" {
-			lh[1] = "0"
-		}
-		v1i, err := strconv.Atoi(lh[1])
-		if err != nil {
-			return nil, err
-		}
-		return &spb.Uint128{High: uint64(v0i), Low: uint64(v1i)}, nil
-	}
-	return nil, nil
 }
 
 func appendCredentials(ctx context.Context, tc *config.TargetConfig) context.Context {

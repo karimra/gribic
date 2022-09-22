@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/karimra/gribic/api"
 	"github.com/karimra/gribic/config"
@@ -34,7 +35,7 @@ func (a *App) InitModifyFlags(cmd *cobra.Command) {
 func (a *App) ModifyPreRunE(cmd *cobra.Command, args []string) error {
 	// parse election ID
 	var err error
-	a.electionID, err = parseUint128(a.Config.ElectionID)
+	a.electionID, err = config.ParseUint128(a.Config.ElectionID)
 	if err != nil {
 		return err
 	}
@@ -250,9 +251,8 @@ func (a *App) createModifyRequestOperation(modifyInput *config.ModifyInput) ([]*
 	reqs := make([]*spb.ModifyRequest, 0)
 
 	for _, op := range modifyInput.Operations {
-
 		req := new(spb.ModifyRequest)
-		aftOp, err := a.createAftOper(op)
+		aftOp, err := op.CreateAftOper()
 		if err != nil {
 			return nil, err
 		}
@@ -262,92 +262,42 @@ func (a *App) createModifyRequestOperation(modifyInput *config.ModifyInput) ([]*
 	return reqs, nil
 }
 
-func (a *App) createAftOper(opc *config.OperationConfig) (*spb.AFTOperation, error) {
-	opts := []api.GRIBIOption{
-		api.ID(opc.ID),
-		api.NetworkInstance(opc.NetworkInstance),
-		api.Op(opc.Operation),
-		api.ElectionID(a.electionID),
-	}
+func (a *App) modifyChan(ctx context.Context, t *target, modReqCh chan *spb.ModifyRequest) (chan *spb.ModifyResponse, chan error) {
+	rspChan := make(chan *spb.ModifyResponse)
+	errChan := make(chan error)
 
-	switch {
-	case opc.IPv6 != nil:
-		// append IPv6Entry option
-		opts = append(opts,
-			api.IPv6Entry(
-				api.Prefix(opc.IPv6.Prefix),
-				api.DecapsulateHeader(opc.IPv6.DecapsulateHeader),
-				api.Metadata([]byte(opc.IPv6.EntryMetadata)),
-				api.NHG(opc.IPv6.NHG),
-				api.NetworkInstance(opc.IPv6.NHGNetworkInstance),
-			),
-		)
-	case opc.IPv4 != nil:
-		// append IPv4Entry option
-		opts = append(opts,
-			api.IPv4Entry(
-				api.Prefix(opc.IPv4.Prefix),
-				api.DecapsulateHeader(opc.IPv4.DecapsulateHeader),
-				api.Metadata([]byte(opc.IPv4.EntryMetadata)),
-				api.NHG(opc.IPv4.NHG),
-				api.NetworkInstance(opc.IPv4.NHGNetworkInstance),
-			),
-		)
-	case opc.NH != nil:
-		nheOpts := []api.GRIBIOption{
-			api.Index(opc.NH.Index),
-			api.EncapsulateHeader(opc.NH.EncapsulateHeader),
-			api.DecapsulateHeader(opc.NH.DecapsulateHeader),
-			api.IPAddress(opc.NH.IPAddress),
-			//
-			api.MAC(opc.NH.MAC),
-			api.NetworkInstance(opc.NH.NetworkInstance),
-		}
-		if opc.NH.InterfaceReference != nil {
-			if opc.NH.InterfaceReference.Interface != "" {
-				nheOpts = append(nheOpts, api.Interface(opc.NH.InterfaceReference.Interface))
+	go func() {
+		defer close(rspChan)
+		defer close(errChan)
+		// stream sending goroutine
+		go func() {
+			var err error
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case req, ok := <-modReqCh:
+					if !ok {
+						return
+					}
+					err = t.modClient.Send(req)
+					if err != nil {
+						errChan <- fmt.Errorf("failed sending request: %v: err=%v", req, err)
+						return
+					}
+				}
 			}
-			if opc.NH.InterfaceReference.Subinterface != nil {
-				nheOpts = append(nheOpts,
-					api.SubInterface(*opc.NH.InterfaceReference.Subinterface),
-				)
+		}()
+		// receive stream
+		for {
+			modRsp, err := t.modClient.Recv()
+			if err != nil {
+				errChan <- err
+				return
 			}
+			rspChan <- modRsp
 		}
-		if opc.NH.IPinIP != nil {
-			nheOpts = append(nheOpts,
-				api.IPinIP(opc.NH.IPinIP.SRCIP, opc.NH.IPinIP.DSTIP),
-			)
-		}
-		if opc.NH.ProgrammedIndex != nil {
-			nheOpts = append(nheOpts, api.ProgrammedIndex(*opc.NH.ProgrammedIndex))
-		}
+	}()
 
-		for _, pmls := range opc.NH.PushedMPLSLabelStack {
-			nheOpts = append(nheOpts,
-				api.PushedMplsLabelStack(pmls.Type, uint64(pmls.Label)),
-			)
-		}
-
-		// create NH Entry Option
-		opts = append(opts, api.NHEntry(nheOpts...))
-	case opc.NHG != nil:
-		nhgeOpts := []api.GRIBIOption{
-			api.ID(opc.NHG.ID),
-		}
-		if opc.NHG.BackupNHG != nil {
-			nhgeOpts = append(nhgeOpts, api.BackupNextHopGroup(*opc.NHG.BackupNHG))
-		}
-		if opc.NHG.Color != nil {
-			nhgeOpts = append(nhgeOpts, api.Color(*opc.NHG.Color))
-		}
-		if opc.NHG.ProgrammedID != nil {
-			nhgeOpts = append(nhgeOpts, api.ProgrammedIndex(*opc.NHG.ProgrammedID))
-		}
-		for _, nh := range opc.NHG.NextHop {
-			nhgeOpts = append(nhgeOpts, api.NHGNextHop(nh.Index, nh.Weight))
-		}
-		// create NHG Entry Option
-		opts = append(opts, api.NHGEntry(nhgeOpts...))
-	}
-	return api.NewAFTOperation(opts...)
+	return rspChan, errChan
 }

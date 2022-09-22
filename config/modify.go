@@ -9,9 +9,12 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/karimra/gnmic/utils"
+	"github.com/karimra/gribic/api"
+	spb "github.com/openconfig/gribi/v1/proto/service"
 	"gopkg.in/yaml.v2"
 )
 
@@ -29,7 +32,9 @@ type OperationConfig struct {
 	NHG  *nhgEntry    `yaml:"nhg,omitempty" json:"nhg,omitempty"`
 	NH   *nhEntry     `yaml:"nh,omitempty" json:"nh,omitempty"`
 	//
-	ElectionID uint64 `yaml:"election-id,omitempty" json:"election-id,omitempty"`
+	ElectionID string `yaml:"election-id,omitempty" json:"election-id,omitempty"`
+	//
+	electionID *spb.Uint128
 }
 
 func (oc *OperationConfig) String() string {
@@ -69,6 +74,109 @@ func (oc *OperationConfig) validate() error {
 		return nil
 	}
 	return nil
+}
+
+func (o *OperationConfig) calculateElectionID() error {
+	if o.ElectionID == "" {
+		return nil
+	}
+	var err error
+	o.electionID, err = ParseUint128(o.ElectionID)
+	return err
+}
+
+func (o *OperationConfig) CreateAftOper() (*spb.AFTOperation, error) {
+	err := o.calculateElectionID()
+	if err != nil {
+		return nil, err
+	}
+	opts := []api.GRIBIOption{
+		api.ID(o.ID),
+		api.NetworkInstance(o.NetworkInstance),
+		api.Op(o.Operation),
+		api.ElectionID(o.electionID),
+	}
+
+	switch {
+	case o.IPv6 != nil:
+		// append IPv6Entry option
+		opts = append(opts,
+			api.IPv6Entry(
+				api.Prefix(o.IPv6.Prefix),
+				api.DecapsulateHeader(o.IPv6.DecapsulateHeader),
+				api.Metadata([]byte(o.IPv6.EntryMetadata)),
+				api.NHG(o.IPv6.NHG),
+				api.NetworkInstance(o.IPv6.NHGNetworkInstance),
+			),
+		)
+	case o.IPv4 != nil:
+		// append IPv4Entry option
+		opts = append(opts,
+			api.IPv4Entry(
+				api.Prefix(o.IPv4.Prefix),
+				api.DecapsulateHeader(o.IPv4.DecapsulateHeader),
+				api.Metadata([]byte(o.IPv4.EntryMetadata)),
+				api.NHG(o.IPv4.NHG),
+				api.NetworkInstance(o.IPv4.NHGNetworkInstance),
+			),
+		)
+	case o.NH != nil:
+		nheOpts := []api.GRIBIOption{
+			api.Index(o.NH.Index),
+			api.EncapsulateHeader(o.NH.EncapsulateHeader),
+			api.DecapsulateHeader(o.NH.DecapsulateHeader),
+			api.IPAddress(o.NH.IPAddress),
+			//
+			api.MAC(o.NH.MAC),
+			api.NetworkInstance(o.NH.NetworkInstance),
+		}
+		if o.NH.InterfaceReference != nil {
+			if o.NH.InterfaceReference.Interface != "" {
+				nheOpts = append(nheOpts, api.Interface(o.NH.InterfaceReference.Interface))
+			}
+			if o.NH.InterfaceReference.Subinterface != nil {
+				nheOpts = append(nheOpts,
+					api.SubInterface(*o.NH.InterfaceReference.Subinterface),
+				)
+			}
+		}
+		if o.NH.IPinIP != nil {
+			nheOpts = append(nheOpts,
+				api.IPinIP(o.NH.IPinIP.SRCIP, o.NH.IPinIP.DSTIP),
+			)
+		}
+		if o.NH.ProgrammedIndex != nil {
+			nheOpts = append(nheOpts, api.ProgrammedIndex(*o.NH.ProgrammedIndex))
+		}
+
+		for _, pmls := range o.NH.PushedMPLSLabelStack {
+			nheOpts = append(nheOpts,
+				api.PushedMplsLabelStack(pmls.Type, uint64(pmls.Label)),
+			)
+		}
+
+		// create NH Entry Option
+		opts = append(opts, api.NHEntry(nheOpts...))
+	case o.NHG != nil:
+		nhgeOpts := []api.GRIBIOption{
+			api.ID(o.NHG.ID),
+		}
+		if o.NHG.BackupNHG != nil {
+			nhgeOpts = append(nhgeOpts, api.BackupNextHopGroup(*o.NHG.BackupNHG))
+		}
+		if o.NHG.Color != nil {
+			nhgeOpts = append(nhgeOpts, api.Color(*o.NHG.Color))
+		}
+		if o.NHG.ProgrammedID != nil {
+			nhgeOpts = append(nhgeOpts, api.ProgrammedIndex(*o.NHG.ProgrammedID))
+		}
+		for _, nh := range o.NHG.NextHop {
+			nhgeOpts = append(nhgeOpts, api.NHGNextHop(nh.Index, nh.Weight))
+		}
+		// create NHG Entry Option
+		opts = append(opts, api.NHGEntry(nhgeOpts...))
+	}
+	return api.NewAFTOperation(opts...)
 }
 
 type ModifyInput struct {
@@ -213,6 +321,45 @@ func (c *Config) readTemplateVarsFile() error {
 		c.logger.Printf("request vars content: %v", c.modifyInputVars)
 	}
 	return nil
+}
+
+func ParseUint128(v string) (*spb.Uint128, error) {
+	if v == "" {
+		return &spb.Uint128{}, nil
+	}
+	if strings.HasPrefix(v, ":") {
+		v = "0" + v
+	}
+	if strings.HasSuffix(v, ":") {
+		v = v + "0"
+	}
+
+	lh := strings.SplitN(v, ":", 2)
+	switch len(lh) {
+	case 1:
+		vi, err := strconv.Atoi(lh[0])
+		if err != nil {
+			return nil, err
+		}
+		return &spb.Uint128{Low: uint64(vi)}, nil
+	case 2:
+		if lh[0] == "" {
+			lh[0] = "0"
+		}
+		v0i, err := strconv.Atoi(lh[0])
+		if err != nil {
+			return nil, err
+		}
+		if lh[1] == "" {
+			lh[1] = "0"
+		}
+		v1i, err := strconv.Atoi(lh[1])
+		if err != nil {
+			return nil, err
+		}
+		return &spb.Uint128{High: uint64(v0i), Low: uint64(v1i)}, nil
+	}
+	return nil, nil
 }
 
 // readFile reads a json or yaml file. the the file is .yaml, converts it to json and returns []byte and an error

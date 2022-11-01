@@ -45,6 +45,3 @@ operations:
       # pushed-mpls-label-stack:
       #   - type: # ipv4-explicit, router-alert, ipv6-explicit, implicit, entropy-label-indicator, no-label
       #     label: # uint
-
-
-  

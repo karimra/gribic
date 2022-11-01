@@ -166,13 +166,15 @@ func (a *App) gribiModify(ctx context.Context, t *target) chan *modifyResponse {
 		if err != nil {
 			return
 		}
-		if a.electionID.High < modRsp.ElectionId.High {
-			a.Logger.Infof("target's last known electionID is higher than client's: %+v > %+v", modRsp.ElectionId, a.electionID)
-			return
-		}
-		if a.electionID.High == modRsp.ElectionId.High && a.electionID.Low < modRsp.ElectionId.Low {
-			a.Logger.Infof("target's last known electionID is higher than client's: %+v > %+v", modRsp.ElectionId, a.electionID)
-			return
+		if a.electionID != nil && modRsp.ElectionId != nil {
+			if a.electionID.High < modRsp.ElectionId.High {
+				a.Logger.Infof("target's last known electionID is higher than client's: %+v > %+v", modRsp.ElectionId, a.electionID)
+				return
+			}
+			if a.electionID.High == modRsp.ElectionId.High && a.electionID.Low < modRsp.ElectionId.Low {
+				a.Logger.Infof("target's last known electionID is higher than client's: %+v > %+v", modRsp.ElectionId, a.electionID)
+				return
+			}
 		}
 		modReqs, err := a.createModifyRequestOperation(modifyInput)
 		if err != nil {
@@ -227,23 +229,43 @@ func (a *App) gribiModify(ctx context.Context, t *target) chan *modifyResponse {
 }
 
 func (a *App) createModifyRequestParams(modifyInput *config.ModifyInput) (*spb.ModifyRequest, error) {
+	if modifyInput.Params == nil {
+		return api.NewModifyRequest(
+			api.PersistenceDelete(),
+			api.RedundancyAllPrimary(),
+			api.AckTypeRib(),
+		)
+	}
+
 	opts := make([]api.GRIBIOption, 0, 4)
 
-	if a.Config.ModifySessionPersistancePreserve ||
-		(modifyInput.Params.Persistence == "preserve" && !a.Config.ModifySessionPersistancePreserve) {
+	switch {
+	case a.Config.ModifySessionPersistancePreserve ||
+		(modifyInput.Params.Persistence == "preserve" && !a.Config.ModifySessionPersistancePreserve):
 		opts = append(opts, api.PersistencePreserve())
+	default:
+		opts = append(opts, api.PersistenceDelete())
 	}
-	if a.Config.ModifySessionRedundancySinglePrimary ||
-		(modifyInput.Params.Redundancy == "single-primary" && !a.Config.ModifySessionRedundancySinglePrimary) {
+
+	switch {
+	case a.Config.ModifySessionRedundancySinglePrimary ||
+		(modifyInput.Params.Redundancy == "single-primary" && !a.Config.ModifySessionRedundancySinglePrimary):
 		opts = append(opts,
 			api.RedundancySinglePrimary(),
 			api.ElectionID(a.electionID),
 		)
+	default:
+		opts = append(opts, api.RedundancyAllPrimary())
 	}
-	if a.Config.ModifySessionRibFibAck ||
-		(modifyInput.Params.AckType == "rib-fib" && !a.Config.ModifySessionRibFibAck) {
+
+	switch {
+	case a.Config.ModifySessionRibFibAck ||
+		(modifyInput.Params.AckType == "rib-fib" && !a.Config.ModifySessionRibFibAck):
 		opts = append(opts, api.AckTypeRibFib())
+	default:
+		opts = append(opts, api.AckTypeRib())
 	}
+
 	return api.NewModifyRequest(opts...)
 }
 

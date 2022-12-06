@@ -1,4 +1,4 @@
-`gribi` is a gRIBI CLI client that provides full support for  gRIBI RPCs.
+`gribic` is a gRIBI CLI client that provides full support for  gRIBI RPCs.
 It is intended to be used for educational and testing purposes.
 
 ## Features

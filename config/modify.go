@@ -126,7 +126,6 @@ func (o *OperationConfig) CreateAftOper() (*spb.AFTOperation, error) {
 			api.EncapsulateHeader(o.NH.EncapsulateHeader),
 			api.DecapsulateHeader(o.NH.DecapsulateHeader),
 			api.IPAddress(o.NH.IPAddress),
-			//
 			api.MAC(o.NH.MAC),
 			api.NetworkInstance(o.NH.NetworkInstance),
 		}
@@ -144,9 +143,6 @@ func (o *OperationConfig) CreateAftOper() (*spb.AFTOperation, error) {
 			nheOpts = append(nheOpts,
 				api.IPinIP(o.NH.IPinIP.SRCIP, o.NH.IPinIP.DSTIP),
 			)
-		}
-		if o.NH.ProgrammedIndex != nil {
-			nheOpts = append(nheOpts, api.ProgrammedIndex(*o.NH.ProgrammedIndex))
 		}
 
 		for _, pmls := range o.NH.PushedMPLSLabelStack {
@@ -167,9 +163,7 @@ func (o *OperationConfig) CreateAftOper() (*spb.AFTOperation, error) {
 		if o.NHG.Color != nil {
 			nhgeOpts = append(nhgeOpts, api.Color(*o.NHG.Color))
 		}
-		if o.NHG.ProgrammedID != nil {
-			nhgeOpts = append(nhgeOpts, api.ProgrammedIndex(*o.NHG.ProgrammedID))
-		}
+
 		for _, nh := range o.NHG.NextHop {
 			nhgeOpts = append(nhgeOpts, api.NHGNextHop(nh.Index, nh.Weight))
 		}

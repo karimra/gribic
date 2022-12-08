@@ -9,7 +9,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/openconfig/gnmi v0.0.0-20220503232738-6eb133c65a13
-	github.com/openconfig/gribi v0.1.1-0.20220126144445-1634932f9fd8
+	github.com/openconfig/gribi v0.1.1-0.20220622162620-08d53dffce45
 	github.com/openconfig/gribigo v0.0.0-20220216214442-0aae099db56f
 	github.com/prometheus/client_golang v1.12.2
 	github.com/sirupsen/logrus v1.8.1

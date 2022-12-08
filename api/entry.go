@@ -413,30 +413,6 @@ func MAC(mac string) func(proto.Message) error {
 	}
 }
 
-// ProgrammedIndex NOTE: used for both NH ProgrammedIndex and NHG ProgrammedId
-func ProgrammedIndex(pIndex uint64) func(proto.Message) error {
-	return func(msg proto.Message) error {
-		if msg == nil {
-			return ErrInvalidMsgType
-		}
-		switch msg := msg.ProtoReflect().Interface().(type) {
-		case *gribi_aft.Afts_NextHopKey:
-			if msg.NextHop == nil {
-				msg.NextHop = new(gribi_aft.Afts_NextHop)
-			}
-			msg.NextHop.ProgrammedIndex = &ywrapper.UintValue{Value: pIndex}
-		case *gribi_aft.Afts_NextHopGroupKey:
-			if msg.NextHopGroup == nil {
-				msg.NextHopGroup = new(gribi_aft.Afts_NextHopGroup)
-			}
-			msg.NextHopGroup.ProgrammedId = &ywrapper.UintValue{Value: pIndex}
-		default:
-			return fmt.Errorf("option ProgrammedIndex: %w: %T", ErrInvalidMsgType, msg)
-		}
-		return nil
-	}
-}
-
 func PushedMplsLabelStack(typ string, label uint64) func(proto.Message) error {
 	return func(msg proto.Message) error {
 		if msg == nil {

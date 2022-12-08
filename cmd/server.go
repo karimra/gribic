@@ -1,6 +1,5 @@
 /*
 Copyright © 2022 Karim Radhouani <medkarimrdi@gmail.com>
-
 */
 package cmd
 
@@ -13,7 +12,7 @@ func newServerCmd() *cobra.Command {
 		Use:     "server",
 		Aliases: []string{"serve", "s"},
 		Short:   "start a gNMI server",
-		PreRun: func(cmd *cobra.Command, args []string) {
+		PreRun: func(cmd *cobra.Command, _ []string) {
 			gApp.Config.SetLocalFlagsFromFile(cmd)
 		},
 		RunE:         gApp.RunEServer,

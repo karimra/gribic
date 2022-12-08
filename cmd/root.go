@@ -15,7 +15,7 @@ func newRootCmd() *cobra.Command {
 	gApp.RootCmd = &cobra.Command{
 		Use:   "gribic",
 		Short: "run gRIBI RPCs from the terminal",
-		PreRun: func(cmd *cobra.Command, args []string) {
+		PreRun: func(cmd *cobra.Command, _ []string) {
 			gApp.Config.SetPersistentFlagsFromFile(cmd)
 		},
 		PersistentPreRunE: gApp.PreRun,

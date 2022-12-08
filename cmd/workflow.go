@@ -1,6 +1,5 @@
 /*
 Copyright © 2022 NAME HERE <EMAIL ADDRESS>
-
 */
 package cmd
 
@@ -13,7 +12,7 @@ func newWorkflowCmd() *cobra.Command {
 		Use:     "workflow",
 		Aliases: []string{"wf", "w"},
 		Short:   "run a workflow",
-		PreRun: func(cmd *cobra.Command, args []string) {
+		PreRun: func(cmd *cobra.Command, _ []string) {
 			gApp.Config.SetLocalFlagsFromFile(cmd)
 		},
 		PreRunE:      gApp.WorkflowPreRunE,

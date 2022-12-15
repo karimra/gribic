@@ -5,7 +5,7 @@
 
 ### config
 
-The `--config` flag specifies the location of a configuration file that `gribic` will read. 
+The `--config` flag specifies the location of a configuration file that `gribic` will read.
 
 If not specified, gribic searches for a file named `.gribic` with extensions `yaml, yml, toml or json` in the following locations:
 
@@ -27,7 +27,7 @@ gribic --address 192.168.113.11:57400,192.168.113.12:57400
 or by using the `--address` flag multiple times:
 
 ```bash
-gnmic -a 192.168.113.11:57400 --address 192.168.113.12:57400
+gribic -a 192.168.113.11:57400 --address 192.168.113.12:57400
 ```
 
 The port number can be omitted, in which case the value fro m the flag --port will be appended to the address
@@ -78,7 +78,7 @@ The debug flag `[-d | --debug]` enables the printing of extra information when s
 
 The proxy-from-env flag `[--proxy-from-env]` indicates that the gribic should use the HTTP/HTTPS proxy addresses defined in the environment variables `http_proxy` and `https_proxy` to reach the targets specified using the `--address` flag.
 
-### format
+<!-- ### format -->
 
 ### election-id
 
@@ -88,4 +88,10 @@ It takes a string in the format `high:low` where both high and low are uint64 fo
 
 `:`, `1:` and `:1` are valid values.
 
+### max-rcv-msg-size
+
+The `--max-rcv-msg-size` set the maximum message size the client can receive from the server. defaults to 4MB
+
 ## Targets
+
+TODO

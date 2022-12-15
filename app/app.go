@@ -86,6 +86,7 @@ func (a *App) InitGlobalFlags() {
 	a.RootCmd.PersistentFlags().BoolVarP(&a.Config.GlobalFlags.Debug, "debug", "d", false, "debug mode")
 	a.RootCmd.PersistentFlags().BoolVarP(&a.Config.GlobalFlags.SkipVerify, "skip-verify", "", false, "skip verify tls connection")
 	a.RootCmd.PersistentFlags().BoolVarP(&a.Config.GlobalFlags.ProxyFromEnv, "proxy-from-env", "", false, "use proxy from environment")
+	a.RootCmd.PersistentFlags().IntVarP(&a.Config.GlobalFlags.MaxRcvMsgSize, "max-rvc-msg-size", "", 1024*1024*4, "max receive message size in bytes")
 	a.RootCmd.PersistentFlags().StringVarP(&a.Config.GlobalFlags.Format, "format", "", "text", "output format, one of: text, json")
 	//
 	a.RootCmd.PersistentFlags().StringVarP(&a.Config.GlobalFlags.ElectionID, "election-id", "", "1:0", "gRIBI client electionID, format is high:low where both high and low are uint64")
@@ -124,6 +125,9 @@ func (a *App) createBaseDialOpts() []grpc.DialOption {
 	}
 	if a.Config.Gzip {
 		opts = append(opts, grpc.WithDefaultCallOptions(grpc.UseCompressor(gzip.Name)))
+	}
+	if a.Config.MaxRcvMsgSize != 0 {
+		opts = append(opts, grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(a.Config.MaxRcvMsgSize)))
 	}
 	return opts
 }

@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/encoding/gzip"
 )
 
 const (
@@ -37,6 +38,7 @@ type TargetConfig struct {
 	TLSMaxVersion string        `json:"tls-max-version,omitempty" mapstructure:"tls-max-version,omitempty"`
 	TLSVersion    string        `json:"tls-version,omitempty" mapstructure:"tls-version,omitempty"`
 	Gzip          *bool         `json:"gzip,omitempty" mapstructure:"gzip,omitempty"`
+	MaxRcvMsgSize int           `json:"max-rcv-msg-size,omitempty" mapstructure:"max-rcv-msg-size,omitempty"`
 	// modify RPC session params
 	// Redundancy  string `json:"redundancy,omitempty" mapstructure:"redundancy,omitempty"`
 	// Persistence string `json:"persistence,omitempty" mapstructure:"persistence,omitempty"`
@@ -157,6 +159,9 @@ func (c *Config) setTargetConfigDefaults(tc *TargetConfig) {
 	if tc.Gzip == nil {
 		tc.Gzip = &c.Gzip
 	}
+	if tc.MaxRcvMsgSize == 0 {
+		tc.MaxRcvMsgSize = c.MaxRcvMsgSize
+	}
 }
 
 func (tc *TargetConfig) DialOpts() ([]grpc.DialOption, error) {
@@ -169,6 +174,12 @@ func (tc *TargetConfig) DialOpts() ([]grpc.DialOption, error) {
 			return nil, err
 		}
 		tOpts = append(tOpts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
+	}
+	if tc.Gzip != nil && *tc.Gzip {
+		tOpts = append(tOpts, grpc.WithDefaultCallOptions(grpc.UseCompressor(gzip.Name)))
+	}
+	if tc.MaxRcvMsgSize > 0 {
+		tOpts = append(tOpts, grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(tc.MaxRcvMsgSize)))
 	}
 	return tOpts, nil
 }

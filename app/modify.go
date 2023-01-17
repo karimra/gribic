@@ -130,6 +130,7 @@ func (a *App) gribiModify(ctx context.Context, t *target) chan *modifyResponse {
 					Err:        err,
 				},
 			}
+			return
 		}
 
 		// session parameters

@@ -120,6 +120,9 @@ func ElectionID(id *spb.Uint128) func(proto.Message) error {
 		if msg == nil {
 			return ErrInvalidMsgType
 		}
+		if id == nil {
+			return nil
+		}
 		switch msg := msg.ProtoReflect().Interface().(type) {
 		case *spb.AFTOperation:
 			msg.ElectionId = id

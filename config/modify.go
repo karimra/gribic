@@ -319,7 +319,7 @@ func (c *Config) readTemplateVarsFile() error {
 
 func ParseUint128(v string) (*spb.Uint128, error) {
 	if v == "" {
-		return &spb.Uint128{}, nil
+		return nil, nil
 	}
 	if strings.HasPrefix(v, ":") {
 		v = "0" + v

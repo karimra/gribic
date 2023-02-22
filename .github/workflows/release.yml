@@ -13,8 +13,8 @@ jobs:
   test:
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GOVER }}
       - run: go test -cover ./...
@@ -26,8 +26,8 @@ jobs:
     needs:
       - test
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GOVER }}
 
@@ -35,7 +35,7 @@ jobs:
         run: docker login ghcr.io -u karimra -p ${{ secrets.GITHUB_TOKEN }}
 
       - name: Release with goreleaser
-        uses: goreleaser/goreleaser-action@v1
+        uses: goreleaser/goreleaser-action@v2
         with:
           version: ${{ env.GORELEASER_VER }}
           args: release --rm-dist -f .goreleaser.yaml

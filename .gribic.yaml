@@ -1,9 +1,9 @@
 targets:
   clab-gribi-srl1:
     username: admin
-    password: admin
+    password: NokiaSrl1!
     skip-verify: true
   clab-gribi-srl2:
     username: admin
-    password: admin
+    password: NokiaSrl1!
     skip-verify: true

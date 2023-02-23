@@ -99,7 +99,6 @@ func (s *step) buildFlushRequest() ([]proto.Message, error) {
 func (s *step) buildModifyRequest() ([]proto.Message, error) {
 	reqs := make([]proto.Message, 0, 2)
 	opts := make([]api.GRIBIOption, 0, 4)
-	// fmt.Println(s)
 	if s.SessionParams != nil {
 		// persistence
 		if strings.ToLower(s.SessionParams.Persistence) == "preserve" {
@@ -107,13 +106,8 @@ func (s *step) buildModifyRequest() ([]proto.Message, error) {
 		}
 		// redundancy
 		if strings.ToLower(s.SessionParams.Redundancy) == "single-primary" {
-			eID, err := ParseUint128(s.ElectionID)
-			if err != nil {
-				return nil, err
-			}
 			opts = append(opts,
 				api.RedundancySinglePrimary(),
-				api.ElectionID(eID),
 			)
 		}
 		// ack
@@ -127,20 +121,36 @@ func (s *step) buildModifyRequest() ([]proto.Message, error) {
 		}
 		reqs = append(reqs, req)
 	}
-	// aft modify if any
-	if len(s.Operations) > 0 {
-		req := &spb.ModifyRequest{
-			Operation: make([]*spb.AFTOperation, 0, len(s.Operations)),
+	// electionID if any
+	var eID *spb.Uint128
+	if s.ElectionID != "" {
+		var err error
+		eID, err = ParseUint128(s.ElectionID)
+		if err != nil {
+			return nil, err
 		}
-		for _, op := range s.Operations {
-			spbOp, err := op.CreateAftOper()
-			if err != nil {
-				return nil, err
-			}
-			req.Operation = append(req.Operation, spbOp)
+	}
+	if len(s.Operations) == 0 {
+		req := &spb.ModifyRequest{
+			ElectionId: eID,
 		}
 		reqs = append(reqs, req)
+		return reqs, nil
 	}
+	// aft modify if any
+	req := &spb.ModifyRequest{
+		Operation:  make([]*spb.AFTOperation, 0, len(s.Operations)),
+		ElectionId: eID,
+	}
+
+	for _, op := range s.Operations {
+		spbOp, err := op.CreateAftOper()
+		if err != nil {
+			return nil, err
+		}
+		req.Operation = append(req.Operation, spbOp)
+	}
+	reqs = append(reqs, req)
 	return reqs, nil
 }
 

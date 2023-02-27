@@ -87,7 +87,12 @@ func (a *App) ModifyRunE(cmd *cobra.Command, args []string) error {
 						return
 					}
 					if rsp != nil {
-						a.Logger.Printf("%+v\n response: %s", rsp.TargetError, prototext.Format(rsp.rsp))
+						if rsp.TargetError.Err != nil {
+							a.Logger.Errorf("%+v", rsp.TargetError)
+						} else {
+							a.Logger.Printf("%s\nresponse: %s", rsp.TargetError.TargetName, prototext.Format(rsp.rsp))
+						}
+
 					}
 				case <-ctx.Done():
 					a.Logger.Print(ctx.Err())
@@ -133,7 +138,7 @@ func (a *App) gribiModify(ctx context.Context, t *target) chan *modifyResponse {
 			return
 		}
 
-		// session parameters
+		// session parameters & election ID
 		modParams, err := a.createModifyRequestParams(modifyInput)
 		if err != nil {
 			rspCh <- &modifyResponse{
@@ -144,37 +149,86 @@ func (a *App) gribiModify(ctx context.Context, t *target) chan *modifyResponse {
 			}
 			return
 		}
-		a.Logger.Printf("sending request=%v to %q", modParams, t.Config.Name)
-		err = modClient.Send(modParams)
-		if err != nil {
+		switch len(modParams) {
+		case 1: // no election ID (all-primary)
+			a.Logger.Printf("sending request=%v to %q", modParams[0], t.Config.Name)
+			err = modClient.Send(modParams[0])
+			if err != nil {
+				rspCh <- &modifyResponse{
+					TargetError: TargetError{
+						TargetName: t.Config.Name,
+						Err:        err,
+					},
+				}
+				return
+			}
+			modRsp, err := modClient.Recv()
 			rspCh <- &modifyResponse{
 				TargetError: TargetError{
 					TargetName: t.Config.Name,
 					Err:        err,
 				},
+				rsp: modRsp,
 			}
-			return
-		}
+			if err != nil {
+				return
+			}
+		case 2: // session params and electionID (single-primary)
+			a.Logger.Printf("sending request=%v to %q", modParams[0], t.Config.Name)
+			err = modClient.Send(modParams[0])
+			if err != nil {
+				rspCh <- &modifyResponse{
+					TargetError: TargetError{
+						TargetName: t.Config.Name,
+						Err:        err,
+					},
+				}
+				return
+			}
+			modRsp, err := modClient.Recv()
+			rspCh <- &modifyResponse{
+				TargetError: TargetError{
+					TargetName: t.Config.Name,
+					Err:        err,
+				},
+				rsp: modRsp,
+			}
+			if err != nil {
+				return
+			}
 
-		modRsp, err := modClient.Recv()
-		rspCh <- &modifyResponse{
-			TargetError: TargetError{
-				TargetName: t.Config.Name,
-				Err:        err,
-			},
-			rsp: modRsp,
-		}
-		if err != nil {
-			return
-		}
-		if a.electionID != nil && modRsp.ElectionId != nil {
-			if a.electionID.High < modRsp.ElectionId.High {
-				a.Logger.Infof("target's last known electionID is higher than client's: %+v > %+v", modRsp.ElectionId, a.electionID)
+			// send election ID
+			a.Logger.Printf("sending request=%v to %q", modParams[1], t.Config.Name)
+			err = modClient.Send(modParams[1])
+			if err != nil {
+				rspCh <- &modifyResponse{
+					TargetError: TargetError{
+						TargetName: t.Config.Name,
+						Err:        err,
+					},
+				}
 				return
 			}
-			if a.electionID.High == modRsp.ElectionId.High && a.electionID.Low < modRsp.ElectionId.Low {
-				a.Logger.Infof("target's last known electionID is higher than client's: %+v > %+v", modRsp.ElectionId, a.electionID)
+			modRsp, err = modClient.Recv()
+			rspCh <- &modifyResponse{
+				TargetError: TargetError{
+					TargetName: t.Config.Name,
+					Err:        err,
+				},
+				rsp: modRsp,
+			}
+			if err != nil {
 				return
+			}
+			if a.electionID != nil && modRsp.ElectionId != nil {
+				if a.electionID.High < modRsp.ElectionId.High {
+					a.Logger.Infof("target's last known electionID is higher than client's: %+v > %+v", modRsp.ElectionId, a.electionID)
+					return
+				}
+				if a.electionID.High == modRsp.ElectionId.High && a.electionID.Low < modRsp.ElectionId.Low {
+					a.Logger.Infof("target's last known electionID is higher than client's: %+v > %+v", modRsp.ElectionId, a.electionID)
+					return
+				}
 			}
 		}
 		modReqs, err := a.createModifyRequestOperation(modifyInput)
@@ -200,7 +254,7 @@ func (a *App) gribiModify(ctx context.Context, t *target) chan *modifyResponse {
 				}
 				return
 			}
-			modRsp, err = modClient.Recv()
+			modRsp, err := modClient.Recv()
 			rspCh <- &modifyResponse{
 				TargetError: TargetError{
 					TargetName: t.Config.Name,
@@ -229,13 +283,14 @@ func (a *App) gribiModify(ctx context.Context, t *target) chan *modifyResponse {
 	return rspCh
 }
 
-func (a *App) createModifyRequestParams(modifyInput *config.ModifyInput) (*spb.ModifyRequest, error) {
+func (a *App) createModifyRequestParams(modifyInput *config.ModifyInput) ([]*spb.ModifyRequest, error) {
 	if modifyInput.Params == nil {
-		return api.NewModifyRequest(
+		modReq, err := api.NewModifyRequest(
 			api.PersistenceDelete(),
 			api.RedundancyAllPrimary(),
 			api.AckTypeRib(),
 		)
+		return []*spb.ModifyRequest{modReq}, err
 	}
 
 	opts := make([]api.GRIBIOption, 0, 4)
@@ -253,7 +308,7 @@ func (a *App) createModifyRequestParams(modifyInput *config.ModifyInput) (*spb.M
 		(modifyInput.Params.Redundancy == "single-primary" && !a.Config.ModifySessionRedundancySinglePrimary):
 		opts = append(opts,
 			api.RedundancySinglePrimary(),
-			api.ElectionID(a.electionID),
+			// ,
 		)
 	default:
 		opts = append(opts, api.RedundancyAllPrimary())
@@ -266,8 +321,15 @@ func (a *App) createModifyRequestParams(modifyInput *config.ModifyInput) (*spb.M
 	default:
 		opts = append(opts, api.AckTypeRib())
 	}
-
-	return api.NewModifyRequest(opts...)
+	sessParams, err := api.NewModifyRequest(opts...)
+	if err != nil {
+		return nil, err
+	}
+	elecIdReq, err := api.NewModifyRequest(api.ElectionID(a.electionID))
+	if err != nil {
+		return nil, err
+	}
+	return []*spb.ModifyRequest{sessParams, elecIdReq}, err
 }
 
 func (a *App) createModifyRequestOperation(modifyInput *config.ModifyInput) ([]*spb.ModifyRequest, error) {

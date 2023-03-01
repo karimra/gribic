@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/karimra/gribic/api"
 	"github.com/karimra/gribic/config"
@@ -349,38 +350,54 @@ func (a *App) createModifyRequestOperation(modifyInput *config.ModifyInput) ([]*
 
 func (a *App) modifyChan(ctx context.Context, t *target, modReqCh chan *spb.ModifyRequest) (chan *spb.ModifyResponse, chan error) {
 	rspChan := make(chan *spb.ModifyResponse)
-	errChan := make(chan error)
-
+	errChan := make(chan error, 1)
+	m := new(sync.Mutex)
+	ops := make(map[uint64]struct{})
+	// stream sending goroutine
 	go func() {
-		defer close(rspChan)
-		defer close(errChan)
-		// stream sending goroutine
-		go func() {
-			var err error
-			for {
-				select {
-				case <-ctx.Done():
+		var err error
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case req, ok := <-modReqCh:
+				if !ok {
 					return
-				case req, ok := <-modReqCh:
-					if !ok {
-						return
-					}
-					err = t.modClient.Send(req)
-					if err != nil {
-						errChan <- fmt.Errorf("failed sending request: %v: err=%v", req, err)
-						return
-					}
+				}
+				m.Lock()
+				for _, op := range req.GetOperation() {
+					ops[op.GetId()] = struct{}{}
+				}
+				m.Unlock()
+				err = t.modClient.Send(req)
+				if err != nil {
+					errChan <- fmt.Errorf("failed sending request: %v: err=%v", req, err)
+					return
 				}
 			}
-		}()
-		// receive stream
+		}
+	}()
+	// receive stream
+	go func() {
+		defer close(rspChan)
 		for {
+			a.mrcv.Lock()
 			modRsp, err := t.modClient.Recv()
+			a.mrcv.Unlock()
 			if err != nil {
 				errChan <- err
 				return
 			}
 			rspChan <- modRsp
+			m.Lock()
+			for _, res := range modRsp.GetResult() {
+				delete(ops, res.GetId())
+			}
+			if len(ops) == 0 {
+				m.Unlock()
+				return
+			}
+			m.Unlock()
 		}
 	}()
 

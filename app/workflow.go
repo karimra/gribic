@@ -259,6 +259,7 @@ func (a *App) runWorkflow(ctx context.Context, t *target, wf *config.Workflow) (
 					return exec, err
 				}
 			}
+			doneCh := make(chan struct{})
 			go func() {
 				rspCh, errCh := a.modifyChan(ctx, t, reqCh)
 				for {
@@ -279,6 +280,7 @@ func (a *App) runWorkflow(ctx context.Context, t *target, wf *config.Workflow) (
 						return
 					case rsp, ok := <-rspCh:
 						if !ok {
+							close(doneCh)
 							return
 						}
 						a.Logger.Infof("workflow=%q: target=%q: step=%s: %T: %v", wf.Name, t.Config.Name, s.Name, rsp, rsp)
@@ -292,6 +294,7 @@ func (a *App) runWorkflow(ctx context.Context, t *target, wf *config.Workflow) (
 						})
 					case err, ok := <-errCh:
 						if !ok {
+							close(doneCh)
 							return
 						}
 						a.Logger.Infof("workflow=%q: target=%q: step=%s: err=%v", t.Config.Name, wf.Name, s.Name, err)
@@ -333,7 +336,9 @@ func (a *App) runWorkflow(ctx context.Context, t *target, wf *config.Workflow) (
 					return exec, err
 				}
 			}
+			<-doneCh
 		}
+
 		// wait duration if any
 		a.Logger.Infof("workflow=%q: target=%q: step=%s: waiting %s after execution", wf.Name, t.Config.Name, s.Name, s.WaitAfter)
 		time.Sleep(s.WaitAfter)

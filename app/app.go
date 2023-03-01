@@ -19,6 +19,9 @@ import (
 )
 
 type App struct {
+	//
+	mrcv *sync.Mutex
+	//
 	ctx     context.Context
 	Cfn     context.CancelFunc
 	RootCmd *cobra.Command
@@ -48,6 +51,7 @@ func New() *App {
 	ctx, cancel := context.WithCancel(context.Background())
 	logger := log.New()
 	a := &App{
+		mrcv:    new(sync.Mutex),
 		ctx:     ctx,
 		Cfn:     cancel,
 		RootCmd: new(cobra.Command),

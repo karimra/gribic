@@ -29,7 +29,6 @@ func newRootCmd() *cobra.Command {
 		newGetCmd(),
 		newModifyCmd(),
 		newFlushCmd(),
-		newServerCmd(),
 		newWorkflowCmd(),
 	)
 	return gApp.RootCmd

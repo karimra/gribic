@@ -7,7 +7,7 @@ require (
 	github.com/karimra/gnmic v0.26.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.5.0
-	github.com/openconfig/gnmi v0.0.0-20220617175856-41246b1b3507
+	github.com/openconfig/gnmi v0.10.0
 	github.com/openconfig/gribi v1.0.0
 	github.com/openconfig/gribigo v0.0.0-20220216214442-0aae099db56f
 	github.com/prometheus/client_golang v1.14.0

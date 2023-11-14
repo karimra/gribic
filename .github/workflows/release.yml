@@ -6,15 +6,15 @@ on:
       - v*
 
 env:
-  GOVER: 1.19.5
-  GORELEASER_VER: v0.180.3
+  GOVER: 1.21.4
+  GORELEASER_VER: v1.19.2
 
 jobs:
   test:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GOVER }}
       - run: go test -cover ./...
@@ -22,12 +22,12 @@ jobs:
           CGO_ENABLED: 0
 
   release:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs:
       - test
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GOVER }}
 
@@ -35,9 +35,9 @@ jobs:
         run: docker login ghcr.io -u karimra -p ${{ secrets.GITHUB_TOKEN }}
 
       - name: Release with goreleaser
-        uses: goreleaser/goreleaser-action@v2
+        uses: goreleaser/goreleaser-action@v5
         with:
           version: ${{ env.GORELEASER_VER }}
-          args: release --rm-dist -f .goreleaser.yaml
+          args: release --clean -f .goreleaser.yaml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

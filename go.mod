@@ -1,6 +1,6 @@
 module github.com/karimra/gribic
 
-go 1.19
+go 1.21.4
 
 require (
 	github.com/adrg/xdg v0.4.0

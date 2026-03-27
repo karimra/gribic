@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"sort"
@@ -35,6 +36,84 @@ type OperationConfig struct {
 	ElectionID string `yaml:"election-id,omitempty" json:"election-id,omitempty"`
 	//
 	electionID *spb.Uint128
+}
+
+// GenerateIPv4s generates a slice of IPv4 addresses based on the entry's prefix, step, count, and increment block.
+// The increment-block is a 1-based index (1-4) indicating which octet to increment from left to right.
+func (e *ipv4v6Entry) GenerateIPv4s() ([]string, error) {
+	// Separate prefix from mask if present
+	prefixIP, _, _ := net.ParseCIDR(e.Prefix)
+	if prefixIP == nil {
+		prefixIP = net.ParseIP(e.Prefix)
+	}
+
+	ip := prefixIP.To4()
+	if ip == nil {
+		return nil, fmt.Errorf("invalid IPv4 address: %s", e.Prefix)
+	}
+	// Validate that the 1-based increment-block is within the valid range (1-4).
+	if e.IncrementBlock < 1 || e.IncrementBlock > 4 {
+		return nil, fmt.Errorf("invalid increment block for IPv4: %d, must be between 1 and 4", e.IncrementBlock)
+	}
+	// Convert 1-based block to 0-based index for the byte slice.
+	index := e.IncrementBlock - 1
+
+	ips := make([]string, 0, e.Count)
+	for i := uint32(0); i < e.Count; i++ {
+		newIP := make(net.IP, len(ip))
+		copy(newIP, ip)
+
+		val := uint32(ip[index]) + (i * e.Step)
+		newIP[index] = byte(val)
+
+		// Re-attach mask if it existed
+		if strings.Contains(e.Prefix, "/") {
+			mask := strings.Split(e.Prefix, "/")[1]
+			ips = append(ips, fmt.Sprintf("%s/%s", newIP.String(), mask))
+		} else {
+			ips = append(ips, newIP.String())
+		}
+	}
+	return ips, nil
+}
+
+// GenerateIPv6s generates a slice of IPv6 addresses based on the entry's prefix, step, count, and increment block.
+// The increment-block is a 1-based index (1-16) indicating which byte to increment from left to right.
+func (e *ipv4v6Entry) GenerateIPv6s() ([]string, error) {
+	// Separate prefix from mask if present
+	prefixIP, _, _ := net.ParseCIDR(e.Prefix)
+	if prefixIP == nil {
+		prefixIP = net.ParseIP(e.Prefix)
+	}
+
+	ip := prefixIP.To16()
+	if ip == nil || ip.To4() != nil {
+		return nil, fmt.Errorf("invalid IPv6 address: %s", e.Prefix)
+	}
+	// Validate that the 1-based increment-block is within the valid range (1-16).
+	if e.IncrementBlock < 1 || e.IncrementBlock > 16 {
+		return nil, fmt.Errorf("invalid increment block for IPv6: %d, must be between 1 and 16", e.IncrementBlock)
+	}
+	// Convert 1-based block to 0-based index for the byte slice.
+	index := e.IncrementBlock - 1
+
+	ips := make([]string, 0, e.Count)
+	for i := uint32(0); i < e.Count; i++ {
+		newIP := make(net.IP, len(ip))
+		copy(newIP, ip)
+
+		val := uint32(ip[index]) + (i * e.Step)
+		newIP[index] = byte(val)
+
+		// Re-attach mask if it existed
+		if strings.Contains(e.Prefix, "/") {
+			mask := strings.Split(e.Prefix, "/")[1]
+			ips = append(ips, fmt.Sprintf("%s/%s", newIP.String(), mask))
+		} else {
+			ips = append(ips, newIP.String())
+		}
+	}
+	return ips, nil
 }
 
 func (oc *OperationConfig) String() string {
@@ -189,8 +268,12 @@ type sessionParams struct {
 type ipv4v6Entry struct {
 	Type string `yaml:"type,omitempty" json:"type,omitempty"`
 	// ipv4v6
-	Prefix             string `yaml:"prefix,omitempty" json:"prefix,omitempty"`
-	NHG                uint64 `yaml:"nhg,omitempty" json:"nhg,omitempty"`
+	Prefix string `yaml:"prefix,omitempty" json:"prefix,omitempty"`
+	NHG    uint64 `yaml:"nhg,omitempty" json:"nhg,omitempty"`
+	// bulk prefix creation
+	Step               uint32 `yaml:"step,omitempty" json:"step,omitempty"`
+	Count              uint32 `yaml:"count,omitempty" json:"count,omitempty"`
+	IncrementBlock     uint32 `yaml:"increment-block,omitempty" json:"increment-block,omitempty"` // 1-based index
 	NHGNetworkInstance string `yaml:"nhg-network-instance,omitempty" json:"nhg-network-instance,omitempty"`
 	DecapsulateHeader  string `yaml:"decapsulate-header,omitempty" json:"decapsulate-header,omitempty"`
 	EntryMetadata      string `yaml:"entry-metadata,omitempty" json:"entry-metadata,omitempty"`
@@ -251,6 +334,54 @@ func (c *Config) GenerateModifyInputs(targetName string) (*ModifyInput, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// This new section expands operations that use IP generation.
+	expandedOps := make([]*OperationConfig, 0, len(result.Operations))
+	for _, op := range result.Operations {
+		// Check for IPv4 generation request
+		if op.IPv4 != nil && op.IPv4.Count > 1 {
+			ips, err := op.IPv4.GenerateIPv4s()
+			if err != nil {
+				return nil, fmt.Errorf("failed to generate IPv4 addresses for operation: %w", err)
+			}
+			for _, ip := range ips {
+				// Create a deep copy of the operation for each generated IP
+				newOp := *op
+				newIPv4Entry := *op.IPv4
+				newOp.IPv4 = &newIPv4Entry
+
+				// Update the prefix to the newly generated IP
+				newOp.IPv4.Prefix = ip
+				expandedOps = append(expandedOps, &newOp)
+			}
+			continue // Move to the next operation in the original list
+		}
+
+		// Check for IPv6 generation request
+		if op.IPv6 != nil && op.IPv6.Count > 1 {
+			ips, err := op.IPv6.GenerateIPv6s()
+			if err != nil {
+				return nil, fmt.Errorf("failed to generate IPv6 addresses for operation: %w", err)
+			}
+			for _, ip := range ips {
+				// Create a deep copy of the operation for each generated IP
+				newOp := *op
+				newIPv6Entry := *op.IPv6
+				newOp.IPv6 = &newIPv6Entry
+
+				// Update the prefix to the newly generated IP
+				newOp.IPv6.Prefix = ip
+				expandedOps = append(expandedOps, &newOp)
+			}
+			continue // Move to the next operation in the original list
+		}
+
+		// If no generation is needed, add the original operation to the list
+		expandedOps = append(expandedOps, op)
+	}
+	// Replace the original operations list with the new, expanded list
+	result.Operations = expandedOps
+
 	sortOperations(result.Operations, "DRA")
 	for i, op := range result.Operations {
 		if op.NetworkInstance == "" {

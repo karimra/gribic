@@ -6,7 +6,7 @@ on:
       - v*
 
 env:
-  GOVER: 1.21.4
+  GOVER: 1.25.5
   GORELEASER_VER: v1.19.2
 
 jobs:

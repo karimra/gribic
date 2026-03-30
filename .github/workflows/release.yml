@@ -35,7 +35,7 @@ jobs:
         run: docker login ghcr.io -u karimra -p ${{ secrets.GITHUB_TOKEN }}
 
       - name: Release with goreleaser
-        uses: goreleaser/goreleaser-action@v5
+        uses: goreleaser/goreleaser-action@v7
         with:
           version: ${{ env.GORELEASER_VER }}
           args: release --clean -f .goreleaser.yaml

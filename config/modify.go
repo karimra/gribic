@@ -151,6 +151,48 @@ func (o *OperationConfig) CreateAftOper() (*spb.AFTOperation, error) {
 			)
 		}
 
+		for _, eh := range o.NH.EncapHeaders {
+			var encapOpt api.GRIBIOption
+			switch strings.ToUpper(eh.Type) {
+			case "UDPV4":
+				if eh.UdpV4 == nil {
+					return nil, fmt.Errorf("encap-header index %d: type is udpv4 but udp-v4 config is missing", eh.Index)
+				}
+				encapOpt = api.EncapUdpV4(
+					eh.UdpV4.SrcIP, eh.UdpV4.DstIP,
+					eh.UdpV4.SrcUdpPort, eh.UdpV4.DstUdpPort,
+					eh.UdpV4.DSCP, eh.UdpV4.IpTTL,
+				)
+			case "UDPV6":
+				if eh.UdpV6 == nil {
+					return nil, fmt.Errorf("encap-header index %d: type is udpv6 but udp-v6 config is missing", eh.Index)
+				}
+				encapOpt = api.EncapUdpV6(
+					eh.UdpV6.SrcIP, eh.UdpV6.DstIP,
+					eh.UdpV6.SrcUdpPort, eh.UdpV6.DstUdpPort,
+					eh.UdpV6.DSCP, eh.UdpV6.IpTTL,
+				)
+			case "GRE":
+				if eh.Gre == nil {
+					return nil, fmt.Errorf("encap-header index %d: type is gre but gre config is missing", eh.Index)
+				}
+				encapOpt = api.EncapGRE(eh.Gre.SrcIP, eh.Gre.DstIP, eh.Gre.TTL)
+			case "IPV4":
+				if eh.Ipv4 == nil {
+					return nil, fmt.Errorf("encap-header index %d: type is ipv4 but ipv4 config is missing", eh.Index)
+				}
+				encapOpt = api.EncapIPv4Hdr(eh.Ipv4.SrcIP, eh.Ipv4.DstIP)
+			case "IPV6":
+				if eh.Ipv6 == nil {
+					return nil, fmt.Errorf("encap-header index %d: type is ipv6 but ipv6 config is missing", eh.Index)
+				}
+				encapOpt = api.EncapIPv6Hdr(eh.Ipv6.SrcIP, eh.Ipv6.DstIP)
+			default:
+				return nil, fmt.Errorf("encap-header index %d: unknown type %q", eh.Index, eh.Type)
+			}
+			nheOpts = append(nheOpts, api.NHEncapHeader(eh.Index, encapOpt))
+		}
+
 		// create NH Entry Option
 		opts = append(opts, api.NHEntry(nheOpts...))
 	case o.NHG != nil:
@@ -225,6 +267,7 @@ type nhEntry struct {
 		Type  string `yaml:"type,omitempty" json:"type,omitempty"`
 		Label uint   `yaml:"label,omitempty" json:"label,omitempty"`
 	} `yaml:"pushed-mpls-label-stack,omitempty" json:"pushed-mpls-label-stack,omitempty"`
+	EncapHeaders []encapHeader `yaml:"encap-headers,omitempty" json:"encap-headers,omitempty"`
 }
 
 type interfaceReference struct {
@@ -235,6 +278,50 @@ type interfaceReference struct {
 type ipinip struct {
 	DSTIP string `yaml:"dst-ip,omitempty" json:"dst-ip,omitempty"`
 	SRCIP string `yaml:"src-ip,omitempty" json:"src-ip,omitempty"`
+}
+
+type encapHeader struct {
+	Index uint64      `yaml:"index,omitempty" json:"index,omitempty"`
+	Type  string      `yaml:"type,omitempty" json:"type,omitempty"`
+	UdpV4 *encapUdpV4 `yaml:"udp-v4,omitempty" json:"udp-v4,omitempty"`
+	UdpV6 *encapUdpV6 `yaml:"udp-v6,omitempty" json:"udp-v6,omitempty"`
+	Gre   *encapGre   `yaml:"gre,omitempty" json:"gre,omitempty"`
+	Ipv4  *encapIpv4  `yaml:"ipv4,omitempty" json:"ipv4,omitempty"`
+	Ipv6  *encapIpv6  `yaml:"ipv6,omitempty" json:"ipv6,omitempty"`
+}
+
+type encapUdpV4 struct {
+	SrcIP      string  `yaml:"src-ip,omitempty" json:"src-ip,omitempty"`
+	DstIP      string  `yaml:"dst-ip,omitempty" json:"dst-ip,omitempty"`
+	SrcUdpPort *uint64 `yaml:"src-udp-port,omitempty" json:"src-udp-port,omitempty"`
+	DstUdpPort *uint64 `yaml:"dst-udp-port,omitempty" json:"dst-udp-port,omitempty"`
+	DSCP       *uint64 `yaml:"dscp,omitempty" json:"dscp,omitempty"`
+	IpTTL      *uint64 `yaml:"ip-ttl,omitempty" json:"ip-ttl,omitempty"`
+}
+
+type encapUdpV6 struct {
+	SrcIP      string  `yaml:"src-ip,omitempty" json:"src-ip,omitempty"`
+	DstIP      string  `yaml:"dst-ip,omitempty" json:"dst-ip,omitempty"`
+	SrcUdpPort *uint64 `yaml:"src-udp-port,omitempty" json:"src-udp-port,omitempty"`
+	DstUdpPort *uint64 `yaml:"dst-udp-port,omitempty" json:"dst-udp-port,omitempty"`
+	DSCP       *uint64 `yaml:"dscp,omitempty" json:"dscp,omitempty"`
+	IpTTL      *uint64 `yaml:"ip-ttl,omitempty" json:"ip-ttl,omitempty"`
+}
+
+type encapGre struct {
+	SrcIP string  `yaml:"src-ip,omitempty" json:"src-ip,omitempty"`
+	DstIP string  `yaml:"dst-ip,omitempty" json:"dst-ip,omitempty"`
+	TTL   *uint64 `yaml:"ttl,omitempty" json:"ttl,omitempty"`
+}
+
+type encapIpv4 struct {
+	SrcIP string `yaml:"src-ip,omitempty" json:"src-ip,omitempty"`
+	DstIP string `yaml:"dst-ip,omitempty" json:"dst-ip,omitempty"`
+}
+
+type encapIpv6 struct {
+	SrcIP string `yaml:"src-ip,omitempty" json:"src-ip,omitempty"`
+	DstIP string `yaml:"dst-ip,omitempty" json:"dst-ip,omitempty"`
 }
 
 func (c *Config) GenerateModifyInputs(targetName string) (*ModifyInput, error) {

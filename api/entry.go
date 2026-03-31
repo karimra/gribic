@@ -11,6 +11,29 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+func encapHeaderTypeFromString(typ string) (enums.OpenconfigAftTypesEncapsulationHeaderType, error) {
+	switch strings.ToUpper(typ) {
+	case "GRE":
+		return enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_GRE, nil
+	case "IPV4":
+		return enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_IPV4, nil
+	case "IPV6":
+		return enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_IPV6, nil
+	case "MPLS":
+		return enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_MPLS, nil
+	case "VXLAN":
+		return enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_VXLAN, nil
+	case "UDP":
+		return enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_UDP, nil
+	case "UDPV4":
+		return enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_UDPV4, nil
+	case "UDPV6":
+		return enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_UDPV6, nil
+	default:
+		return 0, fmt.Errorf("%w: unknown encapsulation header type %q", ErrInvalidValue, typ)
+	}
+}
+
 func NewAFTOperation(opts ...GRIBIOption) (*spb.AFTOperation, error) {
 	m := new(spb.AFTOperation)
 	err := apply(m, opts...)
@@ -209,50 +232,29 @@ func DecapsulateHeader(typ string) func(proto.Message) error {
 			if msg.NextHop == nil {
 				msg.NextHop = new(gribi_aft.Afts_NextHop)
 			}
-			switch strings.ToUpper(typ) {
-			case "GRE":
-				msg.NextHop.DecapsulateHeader = enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_GRE
-			case "IPV4":
-				msg.NextHop.DecapsulateHeader = enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_IPV4
-			case "IPV6":
-				msg.NextHop.DecapsulateHeader = enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_IPV6
-			case "MPLS":
-				msg.NextHop.DecapsulateHeader = enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_MPLS
-			default:
-				return fmt.Errorf("option DecapsulateHeader: %w: %T", ErrInvalidValue, msg)
+			v, err := encapHeaderTypeFromString(typ)
+			if err != nil {
+				return fmt.Errorf("option DecapsulateHeader: %w", err)
 			}
+			msg.NextHop.DecapsulateHeader = v
 		case *gribi_aft.Afts_Ipv4EntryKey:
 			if msg.Ipv4Entry == nil {
 				msg.Ipv4Entry = new(gribi_aft.Afts_Ipv4Entry)
 			}
-			switch strings.ToUpper(typ) {
-			case "GRE":
-				msg.Ipv4Entry.DecapsulateHeader = enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_GRE
-			case "IPV4":
-				msg.Ipv4Entry.DecapsulateHeader = enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_IPV4
-			case "IPV6":
-				msg.Ipv4Entry.DecapsulateHeader = enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_IPV6
-			case "MPLS":
-				msg.Ipv4Entry.DecapsulateHeader = enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_MPLS
-			default:
-				return fmt.Errorf("option DecapsulateHeader: %w: %T", ErrInvalidValue, msg)
+			v, err := encapHeaderTypeFromString(typ)
+			if err != nil {
+				return fmt.Errorf("option DecapsulateHeader: %w", err)
 			}
+			msg.Ipv4Entry.DecapsulateHeader = v
 		case *gribi_aft.Afts_Ipv6EntryKey:
 			if msg.Ipv6Entry == nil {
 				msg.Ipv6Entry = new(gribi_aft.Afts_Ipv6Entry)
 			}
-			switch strings.ToUpper(typ) {
-			case "GRE":
-				msg.Ipv6Entry.DecapsulateHeader = enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_GRE
-			case "IPV4":
-				msg.Ipv6Entry.DecapsulateHeader = enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_IPV4
-			case "IPV6":
-				msg.Ipv6Entry.DecapsulateHeader = enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_IPV6
-			case "MPLS":
-				msg.Ipv6Entry.DecapsulateHeader = enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_MPLS
-			default:
-				return fmt.Errorf("option DecapsulateHeader: %w: %T", ErrInvalidValue, msg)
+			v, err := encapHeaderTypeFromString(typ)
+			if err != nil {
+				return fmt.Errorf("option DecapsulateHeader: %w", err)
 			}
+			msg.Ipv6Entry.DecapsulateHeader = v
 		default:
 			return fmt.Errorf("option DecapsulateHeader: %w: %T", ErrInvalidMsgType, msg)
 		}
@@ -289,18 +291,11 @@ func EncapsulateHeader(typ string) func(proto.Message) error {
 			if msg.NextHop == nil {
 				msg.NextHop = new(gribi_aft.Afts_NextHop)
 			}
-			switch strings.ToUpper(typ) {
-			case "GRE":
-				msg.NextHop.EncapsulateHeader = enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_GRE
-			case "IPV4":
-				msg.NextHop.EncapsulateHeader = enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_IPV4
-			case "IPV6":
-				msg.NextHop.EncapsulateHeader = enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_IPV6
-			case "MPLS":
-				msg.NextHop.EncapsulateHeader = enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_MPLS
-			default:
-				return fmt.Errorf("option EncapsulateHeader: %w: %T", ErrInvalidValue, msg)
+			v, err := encapHeaderTypeFromString(typ)
+			if err != nil {
+				return fmt.Errorf("option EncapsulateHeader: %w", err)
 			}
+			msg.NextHop.EncapsulateHeader = v
 		default:
 			return fmt.Errorf("option EncapsulateHeader: %w: %T", ErrInvalidMsgType, msg)
 		}
@@ -500,6 +495,180 @@ func PushedMplsLabelStackRouterEntropy(label uint64) func(proto.Message) error {
 
 func PushedMplsLabelStackRouterNoLabel() func(proto.Message) error {
 	return PushedMplsLabelStack("NO_LABEL", 0)
+}
+
+// Encap Header Options
+
+// NHEncapHeader appends an encapsulation header entry to a NextHop.
+// The inner opts operate on *gribi_aft.Afts_NextHop_EncapHeader to set the
+// protocol-specific sub-message (e.g. EncapUdpV4, EncapGRE, etc.).
+func NHEncapHeader(index uint64, opts ...GRIBIOption) func(proto.Message) error {
+	return func(msg proto.Message) error {
+		if msg == nil {
+			return ErrInvalidMsgType
+		}
+		switch msg := msg.ProtoReflect().Interface().(type) {
+		case *gribi_aft.Afts_NextHopKey:
+			if msg.NextHop == nil {
+				msg.NextHop = new(gribi_aft.Afts_NextHop)
+			}
+			eh := new(gribi_aft.Afts_NextHop_EncapHeader)
+			if err := apply(eh, opts...); err != nil {
+				return err
+			}
+			msg.NextHop.EncapHeader = append(msg.NextHop.EncapHeader,
+				&gribi_aft.Afts_NextHop_EncapHeaderKey{
+					Index:       index,
+					EncapHeader: eh,
+				},
+			)
+		default:
+			return fmt.Errorf("option NHEncapHeader: %w: %T", ErrInvalidMsgType, msg)
+		}
+		return nil
+	}
+}
+
+func EncapUdpV4(srcIP, dstIP string, srcPort, dstPort, dscp, ipTTL *uint64) func(proto.Message) error {
+	return func(msg proto.Message) error {
+		if msg == nil {
+			return ErrInvalidMsgType
+		}
+		switch msg := msg.ProtoReflect().Interface().(type) {
+		case *gribi_aft.Afts_NextHop_EncapHeader:
+			msg.Type = enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_UDPV4
+			udp := new(gribi_aft.Afts_NextHop_EncapHeader_UdpV4)
+			if srcIP != "" {
+				udp.SrcIp = &ywrapper.StringValue{Value: srcIP}
+			}
+			if dstIP != "" {
+				udp.DstIp = &ywrapper.StringValue{Value: dstIP}
+			}
+			if srcPort != nil {
+				udp.SrcUdpPort = &ywrapper.UintValue{Value: *srcPort}
+			}
+			if dstPort != nil {
+				udp.DstUdpPort = &ywrapper.UintValue{Value: *dstPort}
+			}
+			if dscp != nil {
+				udp.Dscp = &ywrapper.UintValue{Value: *dscp}
+			}
+			if ipTTL != nil {
+				udp.IpTtl = &ywrapper.UintValue{Value: *ipTTL}
+			}
+			msg.UdpV4 = udp
+		default:
+			return fmt.Errorf("option EncapUdpV4: %w: %T", ErrInvalidMsgType, msg)
+		}
+		return nil
+	}
+}
+
+func EncapUdpV6(srcIP, dstIP string, srcPort, dstPort, dscp, ipTTL *uint64) func(proto.Message) error {
+	return func(msg proto.Message) error {
+		if msg == nil {
+			return ErrInvalidMsgType
+		}
+		switch msg := msg.ProtoReflect().Interface().(type) {
+		case *gribi_aft.Afts_NextHop_EncapHeader:
+			msg.Type = enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_UDPV6
+			udp := new(gribi_aft.Afts_NextHop_EncapHeader_UdpV6)
+			if srcIP != "" {
+				udp.SrcIp = &ywrapper.StringValue{Value: srcIP}
+			}
+			if dstIP != "" {
+				udp.DstIp = &ywrapper.StringValue{Value: dstIP}
+			}
+			if srcPort != nil {
+				udp.SrcUdpPort = &ywrapper.UintValue{Value: *srcPort}
+			}
+			if dstPort != nil {
+				udp.DstUdpPort = &ywrapper.UintValue{Value: *dstPort}
+			}
+			if dscp != nil {
+				udp.Dscp = &ywrapper.UintValue{Value: *dscp}
+			}
+			if ipTTL != nil {
+				udp.IpTtl = &ywrapper.UintValue{Value: *ipTTL}
+			}
+			msg.UdpV6 = udp
+		default:
+			return fmt.Errorf("option EncapUdpV6: %w: %T", ErrInvalidMsgType, msg)
+		}
+		return nil
+	}
+}
+
+func EncapGRE(srcIP, dstIP string, ttl *uint64) func(proto.Message) error {
+	return func(msg proto.Message) error {
+		if msg == nil {
+			return ErrInvalidMsgType
+		}
+		switch msg := msg.ProtoReflect().Interface().(type) {
+		case *gribi_aft.Afts_NextHop_EncapHeader:
+			msg.Type = enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_GRE
+			gre := new(gribi_aft.Afts_NextHop_EncapHeader_Gre)
+			if srcIP != "" {
+				gre.SrcIp = &ywrapper.StringValue{Value: srcIP}
+			}
+			if dstIP != "" {
+				gre.DstIp = &ywrapper.StringValue{Value: dstIP}
+			}
+			if ttl != nil {
+				gre.Ttl = &ywrapper.UintValue{Value: *ttl}
+			}
+			msg.Gre = gre
+		default:
+			return fmt.Errorf("option EncapGRE: %w: %T", ErrInvalidMsgType, msg)
+		}
+		return nil
+	}
+}
+
+func EncapIPv4Hdr(srcIP, dstIP string) func(proto.Message) error {
+	return func(msg proto.Message) error {
+		if msg == nil {
+			return ErrInvalidMsgType
+		}
+		switch msg := msg.ProtoReflect().Interface().(type) {
+		case *gribi_aft.Afts_NextHop_EncapHeader:
+			msg.Type = enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_IPV4
+			ipv4 := new(gribi_aft.Afts_NextHop_EncapHeader_Ipv4)
+			if srcIP != "" {
+				ipv4.SrcIp = &ywrapper.StringValue{Value: srcIP}
+			}
+			if dstIP != "" {
+				ipv4.DstIp = &ywrapper.StringValue{Value: dstIP}
+			}
+			msg.Ipv4 = ipv4
+		default:
+			return fmt.Errorf("option EncapIPv4Hdr: %w: %T", ErrInvalidMsgType, msg)
+		}
+		return nil
+	}
+}
+
+func EncapIPv6Hdr(srcIP, dstIP string) func(proto.Message) error {
+	return func(msg proto.Message) error {
+		if msg == nil {
+			return ErrInvalidMsgType
+		}
+		switch msg := msg.ProtoReflect().Interface().(type) {
+		case *gribi_aft.Afts_NextHop_EncapHeader:
+			msg.Type = enums.OpenconfigAftTypesEncapsulationHeaderType_OPENCONFIGAFTTYPESENCAPSULATIONHEADERTYPE_IPV6
+			ipv6 := new(gribi_aft.Afts_NextHop_EncapHeader_Ipv6)
+			if srcIP != "" {
+				ipv6.SrcIp = &ywrapper.StringValue{Value: srcIP}
+			}
+			if dstIP != "" {
+				ipv6.DstIp = &ywrapper.StringValue{Value: dstIP}
+			}
+			msg.Ipv6 = ipv6
+		default:
+			return fmt.Errorf("option EncapIPv6Hdr: %w: %T", ErrInvalidMsgType, msg)
+		}
+		return nil
+	}
 }
 
 // Next Hop Group Options
